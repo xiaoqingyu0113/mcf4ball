@@ -115,7 +115,7 @@ class IsamSolver:
             for _ in range(10):
                 self.isam.update() # more iteration
         else:
-            for _ in range(2):
+            for _ in range(3):
                 self.isam.update() # more iteration
         self.current_estimate = self.isam.calculateEstimate()
 
