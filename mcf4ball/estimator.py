@@ -55,7 +55,11 @@ class IsamSolver:
 
         if t > self.t_max:
             self.obs_buffer.append([t, camera_id, u,v])
-            if not self.optimizable:
+            print('obs buffer size = ', len(self.obs_buffer))
+            if len(self.obs_buffer) < self.graph_minimum_size:
+                pass
+            # elif not self.optimizable:
+            elif False:
                 if self.verbose:
                     print('\t- not optimizable! waiting for more obs!')
                 self.check_optimizable()
@@ -66,21 +70,21 @@ class IsamSolver:
                     self.warm_start()
                     self.num_optim = self.num_optim + 1 
                 else:
-                    self.check_optimizable()
+                    # self.check_optimizable()
 
-                    if not self.optimizable:
-                        self.reset()
-                        if self.verbose:
-                            print('\t- end detection, reset!')
-                    else:
-                        self.curr_node_idx += 1
-                        self.add_subgraph(data)
-                        self.optimize() 
-                        self.clear()
-                        if self.num_optim < 1000:
-                            self.num_optim = self.num_optim + 1 
-                        if len(self.obs_buffer) >= self.graph_minimum_size:
-                            self.obs_buffer.popleft()
+                    # if not self.optimizable:
+                    #     self.reset()
+                    #     if self.verbose:
+                    #         print('\t- end detection, reset!')
+                    # else:
+                    self.curr_node_idx += 1
+                    self.add_subgraph(data)
+                    self.optimize() 
+                    self.clear()
+                    if self.num_optim < 1000:
+                        self.num_optim = self.num_optim + 1 
+                    if len(self.obs_buffer) >= self.graph_minimum_size:
+                        self.obs_buffer.popleft()
 
             self.t_max = t # keep at bottom
 
@@ -95,7 +99,12 @@ class IsamSolver:
             curr_camera_id = self.obs_buffer[idx][1]
             if prev_camera_id != curr_camera_id:
                 sum_change += 1
-        self.optimizable = sum_change > int(self.graph_minimum_size*0.2)
+            prev_camera_id = curr_camera_id
+
+        if self.optimizable:
+            self.optimizable = sum_change > int(self.graph_minimum_size*0.1)
+        else:
+            self.optimizable = sum_change > int(self.graph_minimum_size*0.3)
         if self.verbose:
             print(f'check optimizable {self.optimizable} ({sum_change/self.graph_minimum_size:.2f})')
 

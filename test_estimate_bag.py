@@ -50,7 +50,7 @@ def main():
     total_time = -time.time()
     for iter,data in enumerate(data_array):
         print(f"\niter = {iter}")
-        if iter < 400:
+        if iter < 200:
             continue
         # print(f"{float(data[0])} > {gtsam_solver.t_max} = {float(data[0]) > gtsam_solver.t_max}")
         if  (int(data[1])==3) or (int(data[1])==4) or (int(data[1])==5) :
