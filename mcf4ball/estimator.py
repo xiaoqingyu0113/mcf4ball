@@ -1,3 +1,4 @@
+from collections import deque
 import numpy as np
 # import time 
 import gtsam
@@ -6,12 +7,13 @@ from mcf4ball.factors import PositionFactor,LinearFactor, BounceLinearFactor, Bo
 from mcf4ball.camera import triangulation
         
 class IsamSolver:
-    def __init__(self,camera_param_list,Cd = 0.55,Le=1.5,ez=0.79, verbose = True):
+    def __init__(self,camera_param_list,Cd = 0.55,Le=1.5,ez=0.79, verbose = True, graph_minimum_size = 100):
 
         self.camera_param_list = camera_param_list
         self.Cd = Cd
         self.Le = Le
         self.ez = ez
+        self.graph_minimum_size = graph_minimum_size
         self.verbose = verbose
 
         self.uv_noise = gtsam.noiseModel.Isotropic.Sigma(2, 3.0)  # 2 pixels error
@@ -26,7 +28,7 @@ class IsamSolver:
         self.t_max = -np.inf
    
         self.num_optim = 0
-        self.start_optim = False
+        self.optimizable = False
 
         parameters = gtsam.ISAM2Params()
         self.isam = gtsam.ISAM2(parameters)
@@ -43,46 +45,71 @@ class IsamSolver:
         self.total_addgraph_time = 0
         self.total_optimize_time = 0
 
-        self.obs_start_buffer = []
+        self.obs_buffer = deque()
 
     def update(self,data, optim = False):
         if self.verbose:
             print('updating!')
-        self.curr_node_idx += 1
-
         t, camera_id, u,v = data
         t = float(t); camera_id = int(camera_id);u = float(u);v = float(v)
 
         if t > self.t_max:
-            # self.total_addgraph_time -= time.time()
-            self.add_subgraph(data) # modify self.graph and self.intial
-            # self.total_addgraph_time += time.time()
-            if optim:
-                if self.num_optim ==0:
-                    self.obs_start_buffer.append([t, camera_id, u,v])
-                    self.warm_start()
-
-                # self.total_optimize_time -= time.time()
-                self.optimize() 
-                # self.total_optimize_time += time.time()
-                self.clear()
-                self.num_optim += 1
+            self.obs_buffer.append([t, camera_id, u,v])
+            if not self.optimizable:
+                if self.verbose:
+                    print('\t- not optimizable! waiting for more obs!')
+                self.check_optimizable()
+                if len(self.obs_buffer) >= self.graph_minimum_size:
+                    self.obs_buffer.popleft()
             else:
-                self.obs_start_buffer.append([t, camera_id, u,v])
+                if self.num_optim == 0:
+                    self.warm_start()
+                    self.num_optim = self.num_optim + 1 
+                else:
+                    self.check_optimizable()
+
+                    if not self.optimizable:
+                        self.reset()
+                        if self.verbose:
+                            print('\t- end detection, reset!')
+                    else:
+                        self.curr_node_idx += 1
+                        self.add_subgraph(data)
+                        self.optimize() 
+                        self.clear()
+                        if self.num_optim < 1000:
+                            self.num_optim = self.num_optim + 1 
+                        if len(self.obs_buffer) >= self.graph_minimum_size:
+                            self.obs_buffer.popleft()
 
             self.t_max = t # keep at bottom
 
         elif self.verbose:
             print('ERROR: t < self.t_max!!!!!!!!')
 
+    def check_optimizable(self):
+        prev_camera_id = self.obs_buffer[0][1]
+        sum_change = 0
+        N = len(self.obs_buffer)
+        for idx in range(N):
+            curr_camera_id = self.obs_buffer[idx][1]
+            if prev_camera_id != curr_camera_id:
+                sum_change += 1
+        self.optimizable = sum_change > int(self.graph_minimum_size*0.2)
+        if self.verbose:
+            print(f'check optimizable {self.optimizable} ({sum_change/self.graph_minimum_size:.2f})')
+
     def warm_start(self):
+        """
+        Compute initial estimate using triangulation
+        """
         if self.verbose:
             print("\t- warm starting")
-        t0,camera_id0,u0,v0 = self.obs_start_buffer[0]
+        t0,camera_id0,u0,v0 = self.obs_buffer[0]
         save_idx = []
         save_p_guess = []
         t_save = []
-        for idx, (t,camera_id,u,v) in enumerate(self.obs_start_buffer):
+        for idx, (t,camera_id,u,v) in enumerate(self.obs_buffer):
             if camera_id != camera_id0:
                 p_guess ,_= triangulation(np.array([u0,v0]),np.array([u,v]),np.array([-1,-1]),
                                                             self.camera_param_list[camera_id0],
@@ -95,14 +122,10 @@ class IsamSolver:
         
         save_p_guess = np.array(save_p_guess)
         t_save = np.array(t_save)
-        save_v_guess = np.diff(save_p_guess,axis=0)/np.diff(t_save)[:,None]
-
-        pmean = save_p_guess.mean(0)
-
-        vmean = np.random.rand(3)
-
+     
         curr_idx = save_idx[0]
-        for i in range(len(self.obs_start_buffer)):
+        for i in range(len(self.obs_buffer)):
+            
             if i > curr_idx:
                 curr_idx += 1
             if curr_idx < len(save_idx):
@@ -111,12 +134,15 @@ class IsamSolver:
             else:
                 # self.initial_estimate.insert(L(i),pmean+ np.random.rand(3)-0.5)
                 self.initial_estimate.insert(L(i),save_p_guess[-1])
-            if curr_idx < len(save_v_guess):
-                self.initial_estimate.insert(V(i),np.random.rand(3)-0.5)
-            else:
-                self.initial_estimate.insert(V(i),np.random.rand(3)-0.5)
 
-     
+            self.initial_estimate.insert(V(i),np.random.rand(3)-0.5)
+
+            self.curr_node_idx += 1
+            self.add_subgraph(self.obs_buffer[i])
+  
+        self.initial_estimate.insert(L(i+1),save_p_guess[-1]) # for warm start before isam
+        self.initial_estimate.insert(V(i+1),np.random.rand(3)-0.5) # for warm start before isam
+
     def add_subgraph(self,data):
         t, camera_id, u,v = data
         t = float(t); camera_id = int(camera_id);u = float(u);v = float(v)
@@ -166,7 +192,7 @@ class IsamSolver:
             # self.graph.push_back(PriorFactor3(gtsam.noiseModel.Diagonal.Sigmas(np.array([100, 100, 100])),W(0),np.array([0,0,0])))
             self.initial_estimate.insert(W(self.num_w),np.array([0.1,0.1,0.1]))
         if self.current_estimate is None:
-            # self.initial_estimate.insert(L(j),np.random.rand(3)+np.array([0,0,2]))
+            # self.initial_estimate.insert(L(j),np.random.rand(3))
             # self.initial_estimate.insert(V(j),np.random.rand(3))
             pass
         else:
