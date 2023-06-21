@@ -17,12 +17,12 @@ def main():
     saved_v = []
     saved_w = []
 
-    graph_minimum_size = 20
+    graph_minimum_size = 50
     gtsam_solver = IsamSolver(camera_param_list)
     total_iter = len(data_array)
     total_time = -time.time()
     for iter,data in enumerate(data_array):
-        print(f"iter = {iter}")
+        print(f"\niter = {iter}")
         if iter < graph_minimum_size:
             gtsam_solver.update(data,optim=False)
         else:

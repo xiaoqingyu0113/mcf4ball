@@ -59,60 +59,108 @@ def axis_bgc_white(ax):
     ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
     ax.grid(color='black')
 
-def comet(x,y,z):
+# def comet(x,y,z):
+#     fig = plt.figure()
+#     ax = fig.add_subplot(111, projection='3d')
+#     set_axes_equal(ax)
+#     axis_bgc_white(ax)
+#     line, = ax.plot([], [], [], 'b', lw=2)
+#     point, = ax.plot([], [], [], 'ro')
+#     def init():
+#         line.set_data([], [])
+#         line.set_3d_properties([])
+#         point.set_data([], [])
+#         point.set_3d_properties([])
+#         return line, point,
+#     def update(frame):
+#         line.set_data(x[:frame], y[:frame])
+#         line.set_3d_properties(z[:frame])
+#         point.set_data(x[frame], y[frame])
+#         point.set_3d_properties(z[frame])
+#         return line, point,
+#     ani = animation.FuncAnimation(fig, update, frames=len(x), init_func=init, blit=True,interval=50)
+#     plt.show()
+
+# def comet_with_rot(x,y,z,wx,wy,wz,save=None):
+#     fig = plt.figure()
+#     ax = fig.add_subplot(111, projection='3d')
+#     set_axes_equal(ax)
+#     axis_bgc_white(ax)
+#     line, = ax.plot([], [], [], 'b', lw=2)
+#     point, = ax.plot([], [], [], 'ro')
+
+#     R = [np.eye(3)]  # Turn R into a list
+#     w_, = ax.plot([], [], [], 'g', lw=2)
+
+
+#     def init():
+#         line.set_data([], [])
+#         line.set_3d_properties([])
+#         point.set_data([], [])
+#         point.set_3d_properties([])
+#         w_.set_data([], [])
+#         w_.set_3d_properties([])
+
+#         return line, point,w_
+#     def update(frame):
+#         scale = 0.2
+#         line.set_data(x[:frame], y[:frame])
+#         line.set_3d_properties(z[:frame])
+#         point.set_data(x[frame], y[frame])
+#         point.set_3d_properties(z[frame])
+#         w_.set_data([x[frame],x[frame] + wx[frame]*scale], [y[frame],y[frame]+ wy[frame]*scale])
+#         w_.set_3d_properties([z[frame],z[frame]+wz[frame]*scale])
+
+#         return line, point,w_
+#     ani = animation.FuncAnimation(fig, update, frames=len(x), init_func=init, blit=True,interval=0.01)
+#     # if save is not None:
+#     #     ani.save(save, writer='pillow')
+#     plt.show()
+
+
+def comet(saved_p, saved_v, saved_w,predict_trajectory):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    set_axes_equal(ax)
+    axis_equal(ax,saved_p[:,0],saved_p[:,1],saved_p[:,2])
     axis_bgc_white(ax)
-    line, = ax.plot([], [], [], 'b', lw=2)
-    point, = ax.plot([], [], [], 'ro')
-    def init():
-        line.set_data([], [])
-        line.set_3d_properties([])
-        point.set_data([], [])
-        point.set_3d_properties([])
-        return line, point,
-    def update(frame):
-        line.set_data(x[:frame], y[:frame])
-        line.set_3d_properties(z[:frame])
-        point.set_data(x[frame], y[frame])
-        point.set_3d_properties(z[frame])
-        return line, point,
-    ani = animation.FuncAnimation(fig, update, frames=len(x), init_func=init, blit=True,interval=50)
-    plt.show()
 
-def comet_with_rot(x,y,z,wx,wy,wz,save=None):
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    set_axes_equal(ax)
-    axis_bgc_white(ax)
-    line, = ax.plot([], [], [], 'b', lw=2)
-    point, = ax.plot([], [], [], 'ro')
-
-    R = [np.eye(3)]  # Turn R into a list
-    w_, = ax.plot([], [], [], 'g', lw=2)
-
+    est_point, = ax.plot([], [], [], 'b', marker='o', markersize=2,label='est')
+    pred_line, = ax.plot([], [], [], 'g', lw=2,label='pred')
+    ball_piont, = ax.plot([], [], [], 'r',marker='o', markersize=5,label='ball')
+    ax.view_init(elev=19, azim=145)
 
     def init():
-        line.set_data([], [])
-        line.set_3d_properties([])
-        point.set_data([], [])
-        point.set_3d_properties([])
-        w_.set_data([], [])
-        w_.set_3d_properties([])
+        est_point.set_data([], [])
+        est_point.set_3d_properties([])
 
-        return line, point,w_
+        pred_line.set_data([], [])
+        pred_line.set_3d_properties([])
+
+        ball_piont.set_data([], [])
+        ball_piont.set_3d_properties([])
+
+        return est_point, pred_line,ball_piont,
+    
     def update(frame):
-        scale = 0.2
-        line.set_data(x[:frame], y[:frame])
-        line.set_3d_properties(z[:frame])
-        point.set_data(x[frame], y[frame])
-        point.set_3d_properties(z[frame])
-        w_.set_data([x[frame],x[frame] + wx[frame]*scale], [y[frame],y[frame]+ wy[frame]*scale])
-        w_.set_3d_properties([z[frame],z[frame]+wz[frame]*scale])
+        frame = frame*5
+        est_point.set_data(saved_p[:frame,0], saved_p[:frame,1])
+        est_point.set_3d_properties(saved_p[:frame,2])
+        
+        trust_steps = 150
+        if frame > trust_steps:
+            p0 = saved_p[frame,:];v0 = saved_v[frame,:];w0 = saved_w[frame,:]
+        else:
+            p0 = saved_p[frame,:];v0 = saved_v[frame,:];w0 = saved_w[frame,:]*frame/trust_steps
+        _,xN = predict_trajectory(p0,v0,w0,total_time=3.0,z0=0)
 
-        return line, point,w_
-    ani = animation.FuncAnimation(fig, update, frames=len(x), init_func=init, blit=True,interval=0.01)
-    # if save is not None:
-    #     ani.save(save, writer='pillow')
-    plt.show()
+        ball_piont.set_data([p0[0]], [p0[1]])
+        ball_piont.set_3d_properties([p0[2]])
+
+        pred_line.set_data(xN[:,0], xN[:,1])
+        pred_line.set_3d_properties(xN[:,2])
+
+        return est_point, pred_line,ball_piont,
+
+    ani = animation.FuncAnimation(fig, update, frames=len(saved_p)//5, init_func=init, blit=True,interval=1)
+
+    ani.save('animation.gif', writer='pillow')
