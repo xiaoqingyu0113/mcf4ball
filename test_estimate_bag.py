@@ -64,8 +64,8 @@ def main():
                 gtsam_solver.update(data,optim=True)
                 rst = gtsam_solver.get_result()
                 p_rst,v_rst,w_rst = rst
-                # if np.linalg.norm(w_rst) > 1000:
-                #     continue
+                if np.linalg.norm(w_rst) > 800:
+                    continue
                 saved_p.append(p_rst)
                 saved_w.append(w_rst)
                 saved_v.append(v_rst)
@@ -80,34 +80,34 @@ def main():
 
     print(saved_p.shape)
     # -------------------------------------- plain plot ------------------------------
-    # comet(saved_p,saved_v,saved_w,predict_trajectory)
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
+    comet(saved_p[::3],saved_v[::3],saved_w[::3],predict_trajectory)
+    # fig = plt.figure()
+    # ax = fig.add_subplot(projection='3d')
 
 
-    ax.plot(saved_p[:,0], saved_p[:,1],saved_p[:,2], 'b.', markerfacecolor='black', markersize=3)
-    ax.set_title('uses cameras 1-3')
-    set_axes_equal(ax)
-    ax.set_xlabel('x');ax.set_ylabel('y');ax.set_zlabel('z')
-    plt.show()
+    # ax.plot(saved_p[:,0], saved_p[:,1],saved_p[:,2], 'b.', markerfacecolor='black', markersize=3)
+    # ax.set_title('uses cameras 1-3')
+    # set_axes_equal(ax)
+    # ax.set_xlabel('x');ax.set_ylabel('y');ax.set_zlabel('z')
+    # plt.show()
 
 
-    fig, axs = plt.subplots(1, 2)  # This will create a 2x2 grid of Axes objects
-    labels = ['x','y','z']
-    gt_color = ['r','g','b']
+    # fig, axs = plt.subplots(1, 2)  # This will create a 2x2 grid of Axes objects
+    # labels = ['x','y','z']
+    # gt_color = ['r','g','b']
 
-    for i in range(3):
-        axs[0].plot(saved_v[:,i],'o',label=labels[i])
+    # for i in range(3):
+    #     axs[0].plot(saved_v[:,i],'o',label=labels[i])
 
-        axs[1].plot(saved_w[:,i]/(2*np.pi),'o',label=labels[i]) # convert to herz
+    #     axs[1].plot(saved_w[:,i]/(2*np.pi),'o',label=labels[i]) # convert to herz
 
-    axs[0].set_ylabel('linear velocity (m/s)')    
-    axs[1].set_ylabel('angular velocity (Hz)')    
+    # axs[0].set_ylabel('linear velocity (m/s)')    
+    # axs[1].set_ylabel('angular velocity (Hz)')    
 
-    axs[0].legend() 
-    axs[1].legend() 
+    # axs[0].legend() 
+    # axs[1].legend() 
 
-    plt.show()
+    # plt.show()
 
 if __name__ == '__main__':
     main()

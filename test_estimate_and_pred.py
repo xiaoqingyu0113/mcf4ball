@@ -76,8 +76,8 @@ def main():
             gtsam_solver.update(data,optim=True)
             rst = gtsam_solver.get_result()
             p_rst,v_rst,w_rst = rst
-            if np.linalg.norm(w_rst) > 1000:
-                continue
+            if np.linalg.norm(w_rst) > 400:
+                w_rst = np.zeros(3)
             saved_p.append(p_rst)
             saved_w.append(w_rst)
             saved_v.append(v_rst)
@@ -92,7 +92,7 @@ def main():
     saved_v = np.array(saved_v)
     saved_w = np.array(saved_w)
 
-    comet(saved_p,saved_v,saved_w)
+    comet(saved_p[::3],saved_v[::3],saved_w[::3])
 
   
 

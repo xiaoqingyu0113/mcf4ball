@@ -23,7 +23,7 @@ def rk4_nextStep(fun,t0,y0,tf):
 def predict_trajectory(p0,v0,w0,total_time=10,z0=0,Cd=0.55,Le=1.5,verbose=True):
     if verbose:
         t_sim_walltime = -time.time()
-    N_steps = int(total_time*100)
+    N_steps = int(total_time*300)
     time_ticks= np.linspace(0,total_time,N_steps)
 
     x0 = np.concatenate((p0,v0,w0))
