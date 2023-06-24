@@ -34,22 +34,7 @@ def init_camera_params():
 
     return camera_param_list
 
-def check_optimizable(obs_buffer,graph_minimum_size = 150):
-    prev_camera_id = int(obs_buffer[0][1])
-    sum_change = 0
-    N = len(obs_buffer)
-    for idx in range(N):
-        curr_camera_id = int(obs_buffer[idx][1])
-        if prev_camera_id != curr_camera_id:
-            sum_change += 1
-    print(f'check optimizable ({sum_change/graph_minimum_size:.2f})')
-    return sum_change/graph_minimum_size > 0.6
 
-def add_buffer(obs_buffer:deque,data,graph_minimum_size = 150):
-    if len(obs_buffer) >= graph_minimum_size:
-        obs_buffer.popleft()
-    obs_buffer.append(data)
-        
 
 def main():
     data_array = load_data()
@@ -61,37 +46,26 @@ def main():
     saved_w = []
 
     graph_minimum_size = 150
-    gtsam_solver = IsamSolver(camera_param_list,verbose=False)
+    gtsam_solver = IsamSolver(camera_param_list,verbose=True)
     total_iter = len(data_array)
     total_time = -time.time()
 
-    obs_buffer = deque()
-    optimizable = False
+
     for iter,data in enumerate(data_array):
         print(f"\niter = {iter}")
-        add_buffer(obs_buffer,data)
-        if not optimizable: 
-            optimizable = check_optimizable(obs_buffer)
-        print(optimizable)
         if  (int(data[1])==3) or (int(data[1])==4) or (int(data[1])==5) :
             continue
         if iter > 2000:
             break
-        if (float(data[0]) > gtsam_solver.t_max) and optimizable:
-            # if iter < 0:
-            #     continue
-            # print(gtsam_solver.curr_node_idx)
-            if (gtsam_solver.curr_node_idx < graph_minimum_size):
-                gtsam_solver.update(data,optim=False)
-            else:
-                gtsam_solver.update(data,optim=optimizable)
-                rst = gtsam_solver.get_result()
-                p_rst,v_rst,w_rst = rst
-                if np.linalg.norm(w_rst) > 800:
-                    continue
-                saved_p.append(p_rst)
-                saved_w.append(w_rst)
-                saved_v.append(v_rst)
+        gtsam_solver.push_back(data)
+        rst = gtsam_solver.get_result()
+        if rst is not None:
+            p_rst,v_rst,w_rst = rst
+            if np.linalg.norm(w_rst) > 800:
+                continue
+            saved_p.append(p_rst)
+            saved_w.append(w_rst)
+            saved_v.append(v_rst)
     total_time += time.time()
     print('average inference time (hz) = ', (total_iter-graph_minimum_size)/total_time)
 

@@ -1,4 +1,5 @@
 import numpy as np
+from collections import deque
 # import time 
 import gtsam
 from gtsam.symbol_shorthand import X,L,V,W
@@ -6,12 +7,13 @@ from mcf4ball.factors import PositionFactor,LinearFactor, BounceLinearFactor, Bo
 from mcf4ball.camera import triangulation
         
 class IsamSolver:
-    def __init__(self,camera_param_list,Cd = 0.55,Le=1.5,ez=0.79, verbose = True):
+    def __init__(self,camera_param_list,Cd = 0.55,Le=1.5,ez=0.79, graph_minimum_size=150,verbose = True):
 
         self.camera_param_list = camera_param_list
         self.Cd = Cd
         self.Le = Le
         self.ez = ez
+        self.graph_minimum_size = graph_minimum_size
         self.verbose = verbose
 
         self.uv_noise = gtsam.noiseModel.Isotropic.Sigma(2, 3.0)  # 2 pixels error
@@ -43,7 +45,40 @@ class IsamSolver:
         self.total_addgraph_time = 0
         self.total_optimize_time = 0
 
-        self.obs_start_buffer = []
+        self.obs_buffer = deque()
+        self.opt_buffer = deque()
+        self.optimizable = False
+
+    def add_opt_buffer(self,data):
+        if len(self.opt_buffer) >= self.graph_minimum_size:
+            self.opt_buffer.popleft()
+        self.opt_buffer.append(data)
+
+    def check_optimizable(self):
+        prev_camera_id = int(self.opt_buffer[0][1])
+        sum_change = 0
+        N = len(self.opt_buffer)
+        for idx in range(N):
+            curr_camera_id = int(self.opt_buffer[idx][1])
+            if prev_camera_id != curr_camera_id:
+                sum_change += 1
+        if self.verbose:
+            print(f'check optimizable ({sum_change/self.graph_minimum_size:.2f})')
+        return sum_change/self.graph_minimum_size > 0.6
+
+    def push_back(self,data):
+        t, camera_id, u,v = data
+        t = float(t); camera_id = int(camera_id);u = float(u);v = float(v)
+        self.add_opt_buffer([t, camera_id, u,v])
+        if not self.optimizable: 
+            self.optimizable = self.check_optimizable()
+        
+        if (float(data[0]) > self.t_max) and self.optimizable:
+
+            if (self.curr_node_idx < self.graph_minimum_size):
+                self.update(data,optim=False)
+            else:
+                self.update(data,optim=self.optimizable)
 
     def update(self,data, optim = False):
         if self.verbose:
@@ -54,21 +89,16 @@ class IsamSolver:
         t = float(t); camera_id = int(camera_id);u = float(u);v = float(v)
 
         if t > self.t_max:
-            # self.total_addgraph_time -= time.time()
             self.add_subgraph(data) # modify self.graph and self.intial
-            # self.total_addgraph_time += time.time()
             if optim:
                 if self.num_optim ==0:
-                    self.obs_start_buffer.append([t, camera_id, u,v])
+                    self.obs_buffer.append([t, camera_id, u,v])
                     self.warm_start()
-
-                # self.total_optimize_time -= time.time()
                 self.optimize() 
-                # self.total_optimize_time += time.time()
                 self.clear()
                 self.num_optim += 1
             else:
-                self.obs_start_buffer.append([t, camera_id, u,v])
+                self.obs_buffer.append([t, camera_id, u,v])
 
             self.t_max = t # keep at bottom
 
@@ -78,11 +108,11 @@ class IsamSolver:
     def warm_start(self):
         if self.verbose:
             print("\t- warm starting")
-        t0,camera_id0,u0,v0 = self.obs_start_buffer[0]
+        t0,camera_id0,u0,v0 = self.obs_buffer[0]
         save_idx = []
         save_p_guess = []
         t_save = []
-        for idx, (t,camera_id,u,v) in enumerate(self.obs_start_buffer):
+        for idx, (t,camera_id,u,v) in enumerate(self.obs_buffer):
             if camera_id != camera_id0:
                 p_guess ,_= triangulation(np.array([u0,v0]),np.array([u,v]),np.array([-1,-1]),
                                                             self.camera_param_list[camera_id0],
@@ -102,7 +132,7 @@ class IsamSolver:
         vmean = np.random.rand(3)
 
         curr_idx = save_idx[0]
-        for i in range(len(self.obs_start_buffer)):
+        for i in range(len(self.obs_buffer)):
             if i > curr_idx:
                 curr_idx += 1
             if curr_idx < len(save_idx):
