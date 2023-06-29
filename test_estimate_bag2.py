@@ -17,9 +17,14 @@ from mcf4ball.camera import  load_params, triangulation
 CURRENT_DIR = os.path.dirname(__file__)
 
 def load_data():
-    with open('bag.csv', mode='r') as file:
+    with open('from_bag_2/detections.csv', mode='r') as file:
         reader = csv.reader(file)
         data_list = [row for row in reader]
+    
+    for i,data in enumerate(data_list):
+        if len(data)!=5:
+            print(i)
+            print(len(data))
     data_array = np.array(data_list)
     return data_array
 
@@ -39,36 +44,36 @@ def init_camera_params():
 def main():
     data_array = load_data()
     camera_param_list = init_camera_params()
-    print(f"make total number of {data_array.shape[0]} data")
 
     saved_p = []
     saved_v = []
     saved_w = []
 
-    graph_minimum_size = 100
+    graph_minimum_size = 70
     gtsam_solver = IsamSolver(camera_param_list,verbose=True,graph_minimum_size=graph_minimum_size)
-    total_iter = len(data_array)
     total_time = -time.time()
 
+    for data in data_array:
+        iter = int(data[0])
+        data = data[1:]
 
-    for iter,data in enumerate(data_array):
         print(f"\niter = {iter}")
-        if  (int(data[1])==3) or (int(data[1])==4) or (int(data[1])==5) :
-            print('not camera 1-3')
-            continue
-        if iter > 7000:
+        # if  (int(data[1])==3) or (int(data[1])==4) or (int(data[1])==5) :
+        #     continue
+        if iter > 634:
             break
+        if iter < 214:
+            continue
         gtsam_solver.push_back(data)
         rst = gtsam_solver.get_result()
         if rst is not None:
             p_rst,v_rst,w_rst = rst
-            if np.linalg.norm(w_rst) > 800:
-                continue
+            # if np.linalg.norm(w_rst) > 10000:
+            #     continue
             saved_p.append(p_rst)
             saved_w.append(w_rst)
             saved_v.append(v_rst)
     total_time += time.time()
-    print('average inference time (hz) = ', (total_iter-graph_minimum_size)/total_time)
 
 
     saved_p = np.array(saved_p)

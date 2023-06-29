@@ -69,9 +69,8 @@ class IsamSolver:
         if self.verbose:
             print(f'check optimizable ({sum_change/self.graph_minimum_size:.2f})')
         if not self.optimizable:
-            self.optimizable =  sum_change/self.graph_minimum_size > 0.6
-        else:
-            self.end_optim =  sum_change/self.graph_minimum_size < 0.1
+            self.optimizable =  sum_change/self.graph_minimum_size > 0.5
+
     def check_end_optim(self):
         rst = self.get_result()
         if rst is not None:
@@ -79,16 +78,15 @@ class IsamSolver:
             camera_param = self.camera_param_list[camera_id]
             uv1 = camera_param.proj2img(rst[0]) 
             error = np.sqrt((uv1[0] - u)**2 + (uv1[1]-v)**2)
-            if error > 100:
+            if error > 600:
                 self.end_optim = True
             if self.verbose:
                 print(f"\t- check end optim: input:({u},{v}), backproj: ({int(uv1[0])},{int(uv1[1])})")
-
+                print(f"\t- the error is {error:.2f}")
     def push_back(self,data):
         t, camera_id, u,v = data
         t = float(t); camera_id = int(camera_id);u = float(u);v = float(v)
         self.add_opt_buffer([t, camera_id, u,v])
-        # if not self.optimizable: 
         self.check_optimizable()
         self.check_end_optim()
         if self.end_optim:
@@ -146,11 +144,8 @@ class IsamSolver:
         save_p_guess = np.array(save_p_guess)
         t_save = np.array(t_save)
         save_v_guess = np.diff(save_p_guess,axis=0)/np.diff(t_save)[:,None]
-
-        pmean = save_p_guess.mean(0)
-
-        vmean = np.random.rand(3)
-
+        # pmean = save_p_guess.mean(0)
+        # vmean = np.random.rand(3)
         curr_idx = save_idx[0]
         for i in range(len(self.obs_buffer)):
             if i > curr_idx:
@@ -228,10 +223,10 @@ class IsamSolver:
             print('\t- optimizing!')
         self.isam.update(self.graph, self.initial_estimate)
         if self.num_optim <10:
-            for _ in range(10):
+            for _ in range(1000):
                 self.isam.update() # more iteration
         else:
-            for _ in range(2):
+            for _ in range(200):
                 self.isam.update() # more iteration
         self.current_estimate = self.isam.calculateEstimate()
         
