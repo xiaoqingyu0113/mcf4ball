@@ -78,6 +78,9 @@ def axis_equal(ax,X,Y,Z):
 class CameraParam:
     '''
     A camera paramter structure
+    self.K  - intrinsics
+    self.R  - camera orientation wrt world frame, w_R_cam
+    self.t  - camera position wrt world frame, w_t_cam
     '''
     def __init__(self,K,R,t):
         self.K = K # intrinsics
