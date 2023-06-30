@@ -69,7 +69,7 @@ class IsamSolver:
         if self.verbose:
             print(f'check optimizable ({sum_change/self.graph_minimum_size:.2f})')
         if not self.optimizable:
-            self.optimizable =  sum_change/self.graph_minimum_size > 0.5
+            self.optimizable =  sum_change/self.graph_minimum_size > 0.7
 
     def check_end_optim(self):
         rst = self.get_result()
@@ -78,7 +78,7 @@ class IsamSolver:
             camera_param = self.camera_param_list[camera_id]
             uv1 = camera_param.proj2img(rst[0]) 
             error = np.sqrt((uv1[0] - u)**2 + (uv1[1]-v)**2)
-            if error > 600:
+            if error > 200:
                 self.end_optim = True
             if self.verbose:
                 print(f"\t- check end optim: input:({u},{v}), backproj: ({int(uv1[0])},{int(uv1[1])})")
@@ -223,10 +223,10 @@ class IsamSolver:
             print('\t- optimizing!')
         self.isam.update(self.graph, self.initial_estimate)
         if self.num_optim <10:
-            for _ in range(1000):
+            for _ in range(10):
                 self.isam.update() # more iteration
         else:
-            for _ in range(200):
+            for _ in range(2):
                 self.isam.update() # more iteration
         self.current_estimate = self.isam.calculateEstimate()
         
