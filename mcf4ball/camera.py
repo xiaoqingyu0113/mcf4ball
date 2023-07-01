@@ -99,6 +99,9 @@ class CameraParam:
         t1_gtsam = gtsam.Point3(t1[0],t1[1],t1[2])
         pose1 = gtsam.Pose3(R1_gtsam, t1_gtsam) # pose should be camera pose in the world frame
         return K1_gtsam, pose1        
+    
+    def proj2img(self,p):
+        return world2camera(p,self)
 
 def world2camera(p,camera_params:CameraParam):
     K,R,t = camera_params.parser()
