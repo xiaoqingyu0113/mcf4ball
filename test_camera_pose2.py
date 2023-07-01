@@ -1,7 +1,7 @@
 import yaml
 import csv
 import numpy as np
-from mcf4ball.camera import CameraParam,draw_camera
+from mcf4ball.camera import CameraParam,draw_camera,plot_line_3d,projection_img2world_line
 from mcf4ball.draw_util import set_axes_equal
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D # <--- This is important for 3d plotting 
@@ -17,7 +17,7 @@ def convert2camParam(params):
     camera_params = []
     for p in params:
         K = np.array(p['camera_matrix']['data']).reshape(3,3)
-        R = np.array(p['R_world_cam']).reshape(3,3)
+        R = np.array(p['R_cam_world']).reshape(3,3)
         t = np.array(p['t_world_cam'])
         camera_params.append(CameraParam(K,R,t))
     return camera_params
@@ -39,8 +39,14 @@ def main():
     ax = fig.add_subplot(projection='3d')
     colors = ['r','g','b','r','g','b']
     for cn,c,cp in zip(camera_names, colors,camera_params):
-        draw_camera(cp.R.T,cp.t,color = c,ax= ax)
+        draw_camera(cp.R,cp.t,color = c,ax= ax)
         ax.text(cp.t[0], cp.t[1], cp.t[2], cn,color=c)
+    for detection in detections:
+        camera_id = detection[2]-1
+        camera_param = camera_params[camera_id]
+        start, end = projection_img2world_line(detection[3:],camera_param,z=0.5)
+        plot_line_3d(ax,start, end,color=colors[camera_id])
+
     set_axes_equal(ax)
     ax.set_xlabel('x (m)');    ax.set_ylabel('y (m)');    ax.set_zlabel('z (m)')
     plt.show()

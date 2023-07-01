@@ -7,20 +7,21 @@ from mcf4ball.factors import PositionFactor,LinearFactor, BounceLinearFactor, Bo
 from mcf4ball.camera import triangulation
         
 class IsamSolver:
-    def __init__(self,camera_param_list,Cd = 0.55,Le=1.5,ez=0.79, graph_minimum_size=150,verbose = True):
+    def __init__(self,camera_param_list,Cd = 0.55,Le=1.5,ez=0.79, graph_minimum_size=150,ground_z0=0,verbose = True):
 
         self.camera_param_list = camera_param_list
         self.Cd = Cd
         self.Le = Le
         self.ez = ez
         self.graph_minimum_size = graph_minimum_size
+        self.ground_z0 = ground_z0
         self.verbose = verbose
 
-        self.uv_noise = gtsam.noiseModel.Isotropic.Sigma(2, 3.0)  # 2 pixels error
-        self.camera_calibration_noise = gtsam.noiseModel.Diagonal.Sigmas(np.array([0.001, 0.001, 0.001, 0.001, 0.001, 0.001])) 
+        self.uv_noise = gtsam.noiseModel.Isotropic.Sigma(2, 4.0)  # 2 pixels error
+        self.camera_calibration_noise = gtsam.noiseModel.Diagonal.Sigmas(np.ones(6)*1e-6) 
         self.pos_noise = gtsam.noiseModel.Diagonal.Sigmas(np.array([0.001, 0.001, 0.001]))
-        self.linear_noise = gtsam.noiseModel.Diagonal.Sigmas(np.array([0.001, 0.001, 0.001]))
-        self.angular_noise = gtsam.noiseModel.Diagonal.Sigmas(np.array([0.001, 0.001, 0.001])*2*np.pi)
+        self.linear_noise = gtsam.noiseModel.Diagonal.Sigmas(np.ones(3)*1e-4)
+        self.angular_noise = gtsam.noiseModel.Diagonal.Sigmas(np.ones(3)*1e-4)
 
         self.reset()
 
@@ -69,7 +70,7 @@ class IsamSolver:
         if self.verbose:
             print(f'check optimizable ({sum_change/self.graph_minimum_size:.2f})')
         if not self.optimizable:
-            self.optimizable =  sum_change/self.graph_minimum_size > 0.7
+            self.optimizable =  sum_change/self.graph_minimum_size > 0.4
 
     def check_end_optim(self):
         rst = self.get_result()
@@ -181,7 +182,7 @@ class IsamSolver:
 
             if self.current_estimate is not None:
                 z_prev = self.current_estimate.atVector(L(j-1))[2]
-                if (z_prev < 0) and (j > self.curr_bounce_idx + self.bounce_smooth_step):
+                if (z_prev < self.ground_z0) and (j > self.curr_bounce_idx + self.bounce_smooth_step):
                     if self.verbose:
                         print('add bounce')
                         print(f'\t- adding bounce factor (v({j-1}), w({self.num_w}) -> v({j}))')
@@ -191,7 +192,7 @@ class IsamSolver:
                     self.initial_estimate.insert(W(self.num_w+1), self.current_estimate.atVector(W(self.num_w)))
                     self.num_w += 1
                     self.curr_bounce_idx = j
-                elif (z_prev < 0) and (j <= self.curr_bounce_idx + self.bounce_smooth_step):
+                elif (z_prev < self.ground_z0) and (j <= self.curr_bounce_idx + self.bounce_smooth_step):
                     if self.verbose:
                         print(f'bounce within the smooth, move on. Current bounce idx move to {self.curr_bounce_idx}')
                     self.graph.push_back(LinearFactor(self.linear_noise,V(j-1),W(self.num_w),V(j),self.t_max,t,[self.Cd, self.Le]))

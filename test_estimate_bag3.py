@@ -18,7 +18,7 @@ from mcf4ball.camera import  CameraParam
 CURRENT_DIR = os.path.dirname(__file__)
 
 def load_data():
-    with open('from_bag_2/detections.csv', mode='r') as file:
+    with open('from_bag_1/detections.csv', mode='r') as file:
         reader = csv.reader(file)
         data_list = []
         for row in reader:
@@ -39,7 +39,7 @@ def convert2camParam(params):
     camera_params = []
     for p in params:
         K = np.array(p['camera_matrix']['data']).reshape(3,3)
-        R = np.array(p['R_world_cam']).reshape(3,3)
+        R = np.array(p['R_cam_world']).reshape(3,3)
         t = np.array(p['t_world_cam'])
         camera_params.append(CameraParam(K,R,t))
     return camera_params
@@ -55,7 +55,7 @@ def main():
     saved_v = []
     saved_w = []
 
-    graph_minimum_size = 100
+    graph_minimum_size = 10
     gtsam_solver = IsamSolver(camera_param_list,verbose=True,graph_minimum_size=graph_minimum_size)
     total_time = -time.time()
 
@@ -70,17 +70,15 @@ def main():
 
         print(f"\niter = {iter}")
 
-        # if data[1] >5:
-        #     continue
-        if iter > 1100:
+        if iter > 2211:
             break
-        if iter < 184:
+        if iter < 1125:
             continue
         gtsam_solver.push_back(data)
         rst = gtsam_solver.get_result()
         if rst is not None:
             p_rst,v_rst,w_rst = rst
-            # if np.linalg.norm(w_rst) > 10000:
+            # if np.linalg.norm(w_rst) > 1000:
             #     continue
             saved_p.append(p_rst)
             saved_w.append(w_rst)

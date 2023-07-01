@@ -62,7 +62,7 @@ def main():
             cv2.circle(image, (u, v), 10, (0, 0, 255), 2)  # Draws a red circle with radius 10 and thickness 2
             # Display the image (optional)
             cv2.imshow('Image', image)
-            cv2.waitKey(100)  # Adjust the delay between frames (1ms here)
+            cv2.waitKey(1000)  # Adjust the delay between frames (1ms here)
             # Save the frame to the video
             # video_writer.write(image)
 
