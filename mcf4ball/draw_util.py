@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import matplotlib.animation as animation
 import numpy as np
 
@@ -23,7 +24,19 @@ def axis_equal(ax,X,Y,Z):
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
 
+def plot_sphere(ax,xc,yc,zc,r):
+    # Make data
+    u = np.linspace(0, 2 * np.pi, 20)
+    v = np.linspace(0, np.pi, 20)
+    x = r * np.outer(np.cos(u), np.sin(v)) + xc
+    y = r * np.outer(np.sin(u), np.sin(v)) + yc
+    z = r * np.outer(np.ones(np.size(u)), np.cos(v)) + zc
+    ax.plot_surface(x, y, z,color='orange')
 
+def plot_spheres(ax,xc,yc,zc,r):
+    for i in range(len(xc)):
+        plot_sphere(ax,xc[i],yc[i],zc[i],r)
+        
 def set_axes_equal(ax):
     '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
     cubes as cubes, etc..  This is one possible solution to Matplotlib's
@@ -59,73 +72,58 @@ def axis_bgc_white(ax):
     ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
     ax.grid(color='black')
 
-# def comet(x,y,z):
-#     fig = plt.figure()
-#     ax = fig.add_subplot(111, projection='3d')
-#     set_axes_equal(ax)
-#     axis_bgc_white(ax)
-#     line, = ax.plot([], [], [], 'b', lw=2)
-#     point, = ax.plot([], [], [], 'ro')
-#     def init():
-#         line.set_data([], [])
-#         line.set_3d_properties([])
-#         point.set_data([], [])
-#         point.set_3d_properties([])
-#         return line, point,
-#     def update(frame):
-#         line.set_data(x[:frame], y[:frame])
-#         line.set_3d_properties(z[:frame])
-#         point.set_data(x[frame], y[frame])
-#         point.set_3d_properties(z[frame])
-#         return line, point,
-#     ani = animation.FuncAnimation(fig, update, frames=len(x), init_func=init, blit=True,interval=50)
-#     plt.show()
+def draw_rectangle(ax,point1,point2,facecolor='green',edgecolor='white',alpha=0.6):
+  
+    if abs(point1[2] - point2[2]) < 1e-5:
+        point3 = np.array([point1[0], point2[1], point1[2]])
+        point4 = np.array([point2[0], point1[1], point2[2]])
+    elif abs(point1[1] - point2[1]) < 1e-5:
+        point3 = np.array([point1[0], point1[1], point2[2]])
+        point4 = np.array([point2[0], point2[1], point1[2]])
+    elif abs(point1[0] - point2[0]) < 1e-5:
+        point3 = np.array([point1[0], point1[1], point2[2]])
+        point4 = np.array([point2[0], point2[1], point1[2]])
 
-# def comet_with_rot(x,y,z,wx,wy,wz,save=None):
-#     fig = plt.figure()
-#     ax = fig.add_subplot(111, projection='3d')
-#     set_axes_equal(ax)
-#     axis_bgc_white(ax)
-#     line, = ax.plot([], [], [], 'b', lw=2)
-#     point, = ax.plot([], [], [], 'ro')
+    # Create the list of vertices for the rectangle
+    vertices = [point1, point3, point2, point4]
 
-#     R = [np.eye(3)]  # Turn R into a list
-#     w_, = ax.plot([], [], [], 'g', lw=2)
+    # Create a collection of polygons to represent the rectangle
+    rect = Poly3DCollection([vertices])
+
+    # Set the face color and edge color of the rectangle
+    rect.set_facecolor(facecolor)
+    rect.set_alpha(alpha)
+    rect.set_linewidth(3)
+    rect.set_edgecolor(edgecolor)
+    ax.add_collection3d(rect)
 
 
-#     def init():
-#         line.set_data([], [])
-#         line.set_3d_properties([])
-#         point.set_data([], [])
-#         point.set_3d_properties([])
-#         w_.set_data([], [])
-#         w_.set_3d_properties([])
+def draw_tennis_court(ax,z0 = 0.0):
+    rects = dict()
+    m_per_ft = 0.3048
+    rects['bottom_1'] = (np.array([0.0, 27/2.0, z0]),np.array([18.0, -27/2.0, z0]) )
+    rects['bottom_2'] = (np.array([18+21+21, 27/2.0, z0]),np.array([39*2, -27/2.0, z0]) )
+    rects['left_service'] = (np.array([18,13.5,z0]),np.array([39+21,0,z0]))
+    rects['right_service'] = (np.array([18,0,z0]),np.array([39+21,-13.5,z0]))
+    rects['left_side'] = (np.array([0,18,z0]),np.array([39*2,13.5,z0]))
+    rects['right_side'] = (np.array([0,-13.5,z0]),np.array([39*2,-18,z0]))
+    rects['net'] = (np.array([39,22,z0]), np.array([39,-22,z0+3]))
 
-#         return line, point,w_
-#     def update(frame):
-#         scale = 0.2
-#         line.set_data(x[:frame], y[:frame])
-#         line.set_3d_properties(z[:frame])
-#         point.set_data(x[frame], y[frame])
-#         point.set_3d_properties(z[frame])
-#         w_.set_data([x[frame],x[frame] + wx[frame]*scale], [y[frame],y[frame]+ wy[frame]*scale])
-#         w_.set_3d_properties([z[frame],z[frame]+wz[frame]*scale])
-
-#         return line, point,w_
-#     ani = animation.FuncAnimation(fig, update, frames=len(x), init_func=init, blit=True,interval=0.01)
-#     # if save is not None:
-#     #     ani.save(save, writer='pillow')
-#     plt.show()
-
+    for k,v in rects.items():
+        if k == 'net':
+            draw_rectangle(ax,v[0]*m_per_ft,v[1]*m_per_ft,facecolor='black',edgecolor='black',alpha=0.99)
+        else:
+            draw_rectangle(ax,v[0]*m_per_ft,v[1]*m_per_ft,facecolor='green',alpha=0.5)
 
 def comet(saved_p, saved_v, saved_w,predict_trajectory):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     axis_equal(ax,saved_p[:,0],saved_p[:,1],saved_p[:,2])
     axis_bgc_white(ax)
+    draw_tennis_court(ax)
 
     est_point, = ax.plot([], [], [], 'b', marker='o', markersize=2,label='est')
-    pred_line, = ax.plot([], [], [], 'g', lw=2,label='pred')
+    pred_line, = ax.plot([], [], [], 'orange', lw=2,label='pred')
     ball_piont, = ax.plot([], [], [], 'r',marker='o', markersize=5,label='ball')
     ax.view_init(elev=19, azim=145)
 
@@ -151,7 +149,7 @@ def comet(saved_p, saved_v, saved_w,predict_trajectory):
             p0 = saved_p[frame,:];v0 = saved_v[frame,:];w0 = saved_w[frame,:]
         else:
             p0 = saved_p[frame,:];v0 = saved_v[frame,:];w0 = saved_w[frame,:]*frame/trust_steps
-        _,xN = predict_trajectory(p0,v0,w0,total_time=3.0,z0=0)
+        _,xN = predict_trajectory(p0,v0,w0,total_time=2.0,z0=0)
 
         ball_piont.set_data([p0[0]], [p0[1]])
         ball_piont.set_3d_properties([p0[2]])

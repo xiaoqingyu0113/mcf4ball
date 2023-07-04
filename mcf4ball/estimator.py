@@ -1,10 +1,8 @@
-from collections import deque
 import numpy as np
 from collections import deque
-# import time 
 import gtsam
 from gtsam.symbol_shorthand import X,L,V,W
-from mcf4ball.factors import PositionFactor,LinearFactor, BounceLinearFactor, BounceAngularFactor
+from mcf4ball.factors import PositionFactor,LinearFactor, BounceLinearFactor, BounceAngularFactor,PriorFactor3
 from mcf4ball.camera import triangulation
         
 class IsamSolver:
@@ -18,19 +16,22 @@ class IsamSolver:
         self.ground_z0 = ground_z0
         self.verbose = verbose
 
-        self.uv_noise = gtsam.noiseModel.Isotropic.Sigma(2, 4.0)  # 2 pixels error
+        self.bp_error = 80
+        self.cam_mix_ratio = 0.4
+        self.uv_noise = gtsam.noiseModel.Isotropic.Sigma(2, 2.0)  # 2 pixels error
         self.camera_calibration_noise = gtsam.noiseModel.Diagonal.Sigmas(np.ones(6)*1e-6) 
-        self.pos_noise = gtsam.noiseModel.Diagonal.Sigmas(np.array([0.001, 0.001, 0.001]))
+        self.pos_noise = gtsam.noiseModel.Diagonal.Sigmas(np.ones(3)*1e-3)
         self.linear_noise = gtsam.noiseModel.Diagonal.Sigmas(np.ones(3)*1e-4)
         self.angular_noise = gtsam.noiseModel.Diagonal.Sigmas(np.ones(3)*1e-4)
-
+        self.angular_prior_noise = gtsam.noiseModel.Diagonal.Sigmas(np.ones(3)*5)
         self.reset()
 
     def reset(self):
         self.t_max = -np.inf
-   
+        self.dt = None
         self.num_optim = 0
-        self.optimizable = False
+        self.start_optim = False
+        self.prev_L = deque()
 
         parameters = gtsam.ISAM2Params()
         self.isam = gtsam.ISAM2(parameters)
@@ -71,7 +72,7 @@ class IsamSolver:
         if self.verbose:
             print(f'check optimizable ({sum_change/self.graph_minimum_size:.2f})')
         if not self.optimizable:
-            self.optimizable =  sum_change/self.graph_minimum_size > 0.4
+            self.optimizable =  sum_change/self.graph_minimum_size > self.cam_mix_ratio
 
     def check_end_optim(self):
         rst = self.get_result()
@@ -80,29 +81,39 @@ class IsamSolver:
             camera_param = self.camera_param_list[camera_id]
             uv1 = camera_param.proj2img(rst[0]) 
             error = np.sqrt((uv1[0] - u)**2 + (uv1[1]-v)**2)
-            if error > 200:
+            if error > self.bp_error:
                 self.end_optim = True
+                
             if self.verbose:
-                print(f"\t- check end optim: input:({u},{v}), backproj: ({int(uv1[0])},{int(uv1[1])})")
+                print(f"\t- check end optim: input:({int(u)},{int(v)}), backproj: ({int(uv1[0])},{int(uv1[1])})")
                 print(f"\t- the error is {error:.2f}")
+
     def push_back(self,data):
         t, camera_id, u,v = data
         t = float(t); camera_id = int(camera_id);u = float(u);v = float(v)
+        if t < self.t_max:
+            return
+        self.dt = t - self.t_max
         self.add_opt_buffer([t, camera_id, u,v])
         self.check_optimizable()
         self.check_end_optim()
         if self.end_optim:
             self.reset()
         if (float(data[0]) > self.t_max) and self.optimizable:
+            
             if (self.curr_node_idx < self.graph_minimum_size):
                 self.update(data,optim=False)
             else:
-                self.update(data,optim=True)
-        
+                try:
+                    self.update(data,optim=True)
+                except:
+                    self.reset()
 
     def update(self,data, optim = False):
         if self.verbose:
-            print('updating!')
+            print(f'update from camera:{data[1]}!')
+        self.curr_node_idx += 1
+
         t, camera_id, u,v = data
         t = float(t); camera_id = int(camera_id);u = float(u);v = float(v)
 
@@ -123,27 +134,7 @@ class IsamSolver:
         elif self.verbose:
             print('ERROR: t < self.t_max!!!!!!!!')
 
-    def check_optimizable(self):
-        prev_camera_id = self.obs_buffer[0][1]
-        sum_change = 0
-        N = len(self.obs_buffer)
-        for idx in range(N):
-            curr_camera_id = self.obs_buffer[idx][1]
-            if prev_camera_id != curr_camera_id:
-                sum_change += 1
-            prev_camera_id = curr_camera_id
-
-        if self.optimizable:
-            self.optimizable = sum_change > int(self.graph_minimum_size*0.1)
-        else:
-            self.optimizable = sum_change > int(self.graph_minimum_size*0.3)
-        if self.verbose:
-            print(f'check optimizable {self.optimizable} ({sum_change/self.graph_minimum_size:.2f})')
-
     def warm_start(self):
-        """
-        Compute initial estimate using triangulation
-        """
         if self.verbose:
             print("\t- warm starting")
         t0,camera_id0,u0,v0 = self.obs_buffer[0]
@@ -173,18 +164,17 @@ class IsamSolver:
             if curr_idx < len(save_idx):
                 # self.initial_estimate.insert(L(i),pmean + np.random.rand(3)-0.5)
                 self.initial_estimate.insert(L(i),save_p_guess[curr_idx])
+                # self.initial_estimate.insert(L(i),np.random.rand(3)-0.5)
             else:
                 # self.initial_estimate.insert(L(i),pmean+ np.random.rand(3)-0.5)
                 self.initial_estimate.insert(L(i),save_p_guess[-1])
+                # self.initial_estimate.insert(L(i),np.random.rand(3)-0.5)
+            if curr_idx < len(save_v_guess):
+                self.initial_estimate.insert(V(i),np.random.rand(3)-0.5)
+            else:
+                self.initial_estimate.insert(V(i),np.random.rand(3)-0.5)
 
-            self.initial_estimate.insert(V(i),np.random.rand(3)-0.5)
-
-            self.curr_node_idx += 1
-            self.add_subgraph(self.obs_buffer[i])
-  
-        self.initial_estimate.insert(L(i+1),save_p_guess[-1]) # for warm start before isam
-        self.initial_estimate.insert(V(i+1),np.random.rand(3)-0.5) # for warm start before isam
-
+     
     def add_subgraph(self,data):
         t, camera_id, u,v = data
         t = float(t); camera_id = int(camera_id);u = float(u);v = float(v)
@@ -197,6 +187,8 @@ class IsamSolver:
         if self.verbose:
             print(f"add pixel detection X({j}) -> L({j})")
             print(f"add prior X({j})")
+        if j == 0:
+            self.graph.push_back(PriorFactor3(self.angular_prior_noise,W(0),np.array([0,0,0])))
         if j >0:
             self.graph.push_back(PositionFactor(self.pos_noise,L(j-1),L(j),V(j-1),self.t_max,t))
             if self.verbose:
@@ -234,7 +226,7 @@ class IsamSolver:
             # self.graph.push_back(PriorFactor3(gtsam.noiseModel.Diagonal.Sigmas(np.array([100, 100, 100])),W(0),np.array([0,0,0])))
             self.initial_estimate.insert(W(self.num_w),np.array([0.1,0.1,0.1]))
         if self.current_estimate is None:
-            # self.initial_estimate.insert(L(j),np.random.rand(3))
+            # self.initial_estimate.insert(L(j),np.random.rand(3)+np.array([0,0,2]))
             # self.initial_estimate.insert(V(j),np.random.rand(3))
             pass
         else:
@@ -249,7 +241,7 @@ class IsamSolver:
             for _ in range(10):
                 self.isam.update() # more iteration
         else:
-            for _ in range(2):
+            for _ in range(3):
                 self.isam.update() # more iteration
         self.current_estimate = self.isam.calculateEstimate()
         
@@ -268,8 +260,18 @@ class IsamSolver:
             l = self.current_estimate.atVector(L(self.curr_node_idx))
             v = self.current_estimate.atVector(V(self.curr_node_idx))
             w = self.current_estimate.atVector(W(self.num_w))
+
+            if len(self.prev_L)>10:
+                self.prev_L.popleft()
+            self.prev_L.append(l)
+
+            prev_l = self.prev_L[0]
+
             if self.verbose:
                 print(f'get result: (L({self.curr_node_idx}),V({self.curr_node_idx}),W({self.num_w}))')
-        return l,v,w
 
+            if len(self.prev_L) >= 10 and np.linalg.norm(prev_l - l) < 0.500: # some filtering
+                return l,v,w
+            else:
+                return None
 

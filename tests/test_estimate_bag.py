@@ -5,14 +5,11 @@ import yaml
 import os
 import matplotlib.pyplot as plt
 import time
-from collections import deque
-
-from test_makedata import make_data
 
 from mcf4ball.estimator import IsamSolver
 from mcf4ball.predictor import predict_trajectory
 
-from mcf4ball.draw_util import  set_axes_equal,comet
+from mcf4ball.draw_util import  set_axes_equal,comet,draw_tennis_court, plot_spheres
 from mcf4ball.camera import  CameraParam
 
 CURRENT_DIR = os.path.dirname(__file__)
@@ -55,7 +52,7 @@ def main():
     saved_v = []
     saved_w = []
 
-    graph_minimum_size = 10
+    graph_minimum_size = 30
     gtsam_solver = IsamSolver(camera_param_list,verbose=True,graph_minimum_size=graph_minimum_size)
     total_time = -time.time()
 
@@ -70,10 +67,10 @@ def main():
 
         print(f"\niter = {iter}")
 
-        if iter > 2211:
+        if iter > 7000:
             break
-        if iter < 1125:
-            continue
+        # if iter < 0:
+        #     continue
         gtsam_solver.push_back(data)
         rst = gtsam_solver.get_result()
         if rst is not None:
@@ -90,36 +87,44 @@ def main():
     saved_v = np.array(saved_v)
     saved_w = np.array(saved_w)
 
-    print(saved_p.shape)
+    k = 10  # Number of minimum values to retrieve
+    sorted_indices = np.argsort(saved_p[:, 2])
+    k_min_values = saved_p[sorted_indices[:k], 2]
+
+    print(k_min_values)  # Output: [1 2]
+
     # -------------------------------------- plain plot ------------------------------
-    # comet(saved_p[::3],saved_v[::3],saved_w[::3],predict_trajectory)
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
+    comet(saved_p[::3],saved_v[::3],saved_w[::3],predict_trajectory)
+    # fig = plt.figure()
+    # ax = fig.add_subplot(projection='3d')
 
 
-    ax.plot(saved_p[:,0], saved_p[:,1],saved_p[:,2], 'b.', markerfacecolor='black', markersize=3)
-    ax.set_title('uses cameras 1-3')
-    set_axes_equal(ax)
-    ax.set_xlabel('x');ax.set_ylabel('y');ax.set_zlabel('z')
-    plt.show()
+    # ax.plot(saved_p[:,0], saved_p[:,1],saved_p[:,2], 'b.', markerfacecolor='black', markersize=3)
+    # # plot_spheres(ax,saved_p[:,0], saved_p[:,1],saved_p[:,2],0.035)
+    # ax.set_title('uses cameras 1-3')
+    # set_axes_equal(ax)
+    # draw_tennis_court(ax)
+    # ax.set_xlabel('x');ax.set_ylabel('y');ax.set_zlabel('z')
+    # plt.show()
 
 
-    fig, axs = plt.subplots(1, 2)  # This will create a 2x2 grid of Axes objects
-    labels = ['x','y','z']
-    gt_color = ['r','g','b']
+    # fig, axs = plt.subplots(1, 2)  # This will create a 2x2 grid of Axes objects
+    # labels = ['x','y','z']
+    # gt_color = ['r','g','b']
 
-    for i in range(3):
-        axs[0].plot(saved_v[:,i],'o',label=labels[i])
+    # for i in range(3):
+    #     axs[0].plot(saved_v[:,i],'o',label=labels[i])
+    #     axs[1].plot(saved_w[:,i]/(2*np.pi),'o',label=labels[i]) # convert to herz
 
-        axs[1].plot(saved_w[:,i]/(2*np.pi),'o',label=labels[i]) # convert to herz
+    # axs[0].set_ylabel('linear velocity (m/s)')    
+    # axs[1].set_ylabel('angular velocity (Hz)')    
 
-    axs[0].set_ylabel('linear velocity (m/s)')    
-    axs[1].set_ylabel('angular velocity (Hz)')    
+    # axs[0].legend() 
+    # axs[1].legend() 
 
-    axs[0].legend() 
-    axs[1].legend() 
+    # plt.show()
 
-    plt.show()
-
+    # plt.plot(saved_p[:,2])
+    # plt.show()
 if __name__ == '__main__':
     main()

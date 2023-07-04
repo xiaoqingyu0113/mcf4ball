@@ -53,7 +53,7 @@ def main():
         iter = int(data[0])
         camera_id = int(data[2])
         u = int(float(data[3]));v = int(float(data[4]))
-        if iter > 1350:
+        if iter > 2000:
             break
         if camera_id == 2:
             image_iter = find_closest_value(iter,jpg_iters)
@@ -62,7 +62,7 @@ def main():
             cv2.circle(image, (u, v), 10, (0, 0, 255), 2)  # Draws a red circle with radius 10 and thickness 2
             # Display the image (optional)
             cv2.imshow('Image', image)
-            cv2.waitKey(1000)  # Adjust the delay between frames (1ms here)
+            cv2.waitKey(1)  # Adjust the delay between frames (1ms here)
             # Save the frame to the video
             # video_writer.write(image)
 
