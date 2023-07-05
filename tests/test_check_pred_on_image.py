@@ -38,6 +38,9 @@ def get_iter_from_img(jpg_file):
 def find_closest_value(target, values):
     closest_value = min(values, key=lambda x: abs(x - target))
     return int(closest_value)
+def find_closest_value_index(target, values):
+    closest_value_index = min(range(len(values)), key=lambda i: abs(values[i] - target))
+    return int(closest_value_index)
 
 
 
@@ -66,7 +69,6 @@ def save_as_image_video():
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.axis('off')
     est_point, = ax.plot([], [], 'b', marker='o', markersize=2,label='est')
     pred_line, = ax.plot([], [], 'orange', lw=2,label='pred')
     ball_piont, = ax.plot([], [], 'r',marker='o', markersize=5,label='ball')
@@ -79,13 +81,24 @@ def save_as_image_video():
     
     def update(frame):
         ax.clear()
+        ax.axis('off')
+
         image = plt.imread(jpg_files[frame])
         ax.imshow(image)
 
         curr_iter = jpg_iters[frame]
-        rst_idx = find_closest_value(curr_iter,saved_iter)
+        rst_idx = find_closest_value_index(curr_iter,saved_iter)
+        offset = 0
+        if rst_idx - offset < 0:
+            rst_idx = 0
+        else:
+            rst_idx = rst_idx - offset
 
-        est_point.set_data(est_uv[:rst_idx,0], est_uv[:rst_idx,1])
+        print("rst_idx = ",rst_idx)
+        print("curr_iter = ", curr_iter)
+        print("rst_iter = ", saved_iter[rst_idx])
+        ax.plot(est_uv[:rst_idx,0], est_uv[:rst_idx,1], 'b', marker='.', markersize=1,label='est')
+
         
         p0 = saved_p[rst_idx,:];v0 = saved_v[rst_idx,:];w0 = saved_w[rst_idx,:]
         _,xN = predict_trajectory(p0,v0,w0,total_time=2.0,z0=0)
@@ -97,12 +110,16 @@ def save_as_image_video():
                 pred_uv_onimage.append(uv)
         pred_uv_onimage = np.array(pred_uv_onimage)
 
-        ball_piont.set_data([est_uv[rst_idx,0]], [est_uv[rst_idx,1]])
-        pred_line.set_data(pred_uv_onimage[:,0], pred_uv_onimage[:,1])
+        if len(pred_uv_onimage)>0:
+            ax.plot(pred_uv_onimage[:,0], pred_uv_onimage[:,1], 'orange', lw=1,label='pred')
+            # ball_piont, = ax.plot(est_uv[rst_idx,0], est_uv[rst_idx,1], 'r',marker='o', markersize=5,label='ball')
+        else:
+            ax.plot([], [], 'orange', lw=2,label='pred')
+            # ball_piont, = ax.plot([], [], 'r',marker='o', markersize=5,label='ball')
 
         return est_point, pred_line,ball_piont,
 
-    ani = animation.FuncAnimation(fig, update, frames=500, init_func=init, blit=True,interval=1)
+    ani = animation.FuncAnimation(fig, update, frames=200, init_func=init, blit=True,interval=1)
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
 
