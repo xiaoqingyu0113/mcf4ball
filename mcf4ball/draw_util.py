@@ -113,10 +113,11 @@ def draw_tennis_court(ax,z0 = 0.0):
         if k == 'net':
             draw_rectangle(ax,v[0]*m_per_ft,v[1]*m_per_ft,facecolor='black',edgecolor='black',alpha=0.99)
         else:
-            draw_rectangle(ax,v[0]*m_per_ft,v[1]*m_per_ft,facecolor='green',alpha=0.5)
+            draw_rectangle(ax,v[0]*m_per_ft,v[1]*m_per_ft,facecolor='green',alpha=0.2)
 
 def comet(saved_p, saved_v, saved_w,predict_trajectory):
     fig = plt.figure()
+    fig.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)    
     ax = fig.add_subplot(111, projection='3d')
     axis_equal(ax,saved_p[:,0],saved_p[:,1],saved_p[:,2])
     axis_bgc_white(ax)
@@ -126,7 +127,7 @@ def comet(saved_p, saved_v, saved_w,predict_trajectory):
     pred_line, = ax.plot([], [], [], 'orange', lw=2,label='pred')
     ball_piont, = ax.plot([], [], [], 'r',marker='o', markersize=5,label='ball')
     ax.view_init(elev=19, azim=145)
-
+    
     def init():
         est_point.set_data([], [])
         est_point.set_3d_properties([])
@@ -160,5 +161,9 @@ def comet(saved_p, saved_v, saved_w,predict_trajectory):
         return est_point, pred_line,ball_piont,
 
     ani = animation.FuncAnimation(fig, update, frames=len(saved_p)//5, init_func=init, blit=True,interval=1)
+    Writer = animation.writers['ffmpeg']
+    writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
 
-    ani.save('animation.gif', writer='pillow')
+    ani.save('3DWave.mp4', writer=writer)
+
+    # ani.save('animation.mp4', writer='pillow')

@@ -8,7 +8,6 @@ from collections import deque
 from PIL import Image, ImageDraw
 import cv2
 
-from test_makedata import make_data
 
 from mcf4ball.estimator import IsamSolver
 from mcf4ball.predictor import predict_trajectory
@@ -49,6 +48,7 @@ def main():
     jpg_iters = [get_iter_from_img(f) for f in jpg_files]
 
 
+    
     for data in data_array:
         iter = int(data[0])
         camera_id = int(data[2])
@@ -62,7 +62,7 @@ def main():
             cv2.circle(image, (u, v), 10, (0, 0, 255), 2)  # Draws a red circle with radius 10 and thickness 2
             # Display the image (optional)
             cv2.imshow('Image', image)
-            cv2.waitKey(1)  # Adjust the delay between frames (1ms here)
+            cv2.waitKey(5)  # Adjust the delay between frames (1ms here)
             # Save the frame to the video
             # video_writer.write(image)
 
