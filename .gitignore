@@ -160,3 +160,5 @@ cython_debug/
 #.idea/
 from_bag*
 *.gif
+*.mp4
+*.jpg

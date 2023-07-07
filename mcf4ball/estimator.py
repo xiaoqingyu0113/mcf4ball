@@ -6,7 +6,7 @@ from mcf4ball.factors import PositionFactor,LinearFactor, BounceLinearFactor, Bo
 from mcf4ball.camera import triangulation
         
 class IsamSolver:
-    def __init__(self,camera_param_list,Cd = 0.55,Le=1.5,ez=0.79, graph_minimum_size=150,ground_z0=0,verbose = True):
+    def __init__(self,camera_param_list,Cd = 0.55,Le=1.5,ez=1.0, graph_minimum_size=150,ground_z0=0,verbose = True):
 
         self.camera_param_list = camera_param_list
         self.Cd = Cd
@@ -188,7 +188,7 @@ class IsamSolver:
             print(f"add pixel detection X({j}) -> L({j})")
             print(f"add prior X({j})")
         if j == 0:
-            self.graph.push_back(PriorFactor3(self.angular_prior_noise,W(0),np.array([0,0,0])))
+            self.graph.push_back(PriorFactor3(self.angular_prior_noise,W(0),np.array([0,0,20])*6.28))
         if j >0:
             self.graph.push_back(PositionFactor(self.pos_noise,L(j-1),L(j),V(j-1),self.t_max,t))
             if self.verbose:

@@ -82,7 +82,9 @@ def save_as_image_video():
     def update(frame):
         ax.clear()
         ax.axis('off')
-
+        plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
+        ax.set_xlim([0,1280])
+        ax.set_ylim([1024,0])
         image = plt.imread(jpg_files[frame])
         ax.imshow(image)
 
@@ -94,19 +96,17 @@ def save_as_image_video():
         else:
             rst_idx = rst_idx - offset
 
-        print("rst_idx = ",rst_idx)
-        print("curr_iter = ", curr_iter)
-        print("rst_iter = ", saved_iter[rst_idx])
+
         ax.plot(est_uv[:rst_idx,0], est_uv[:rst_idx,1], 'b', marker='.', markersize=1,label='est')
 
         
         p0 = saved_p[rst_idx,:];v0 = saved_v[rst_idx,:];w0 = saved_w[rst_idx,:]
-        _,xN = predict_trajectory(p0,v0,w0,total_time=2.0,z0=0)
+        _,xN = predict_trajectory(p0,v0,w0,total_time=2.0,z0=0,ez=1.0)
 
         pred_uv = camera_param.proj2img(xN[:,:3])
         pred_uv_onimage = []
         for uv in pred_uv:
-            if (0<=uv[0]<1280) and (0<=uv[1]<1080):
+            if (0<=uv[0]<1280) and (0<=uv[1]<1024):
                 pred_uv_onimage.append(uv)
         pred_uv_onimage = np.array(pred_uv_onimage)
 
@@ -119,7 +119,7 @@ def save_as_image_video():
 
         return est_point, pred_line,ball_piont,
 
-    ani = animation.FuncAnimation(fig, update, frames=200, init_func=init, blit=True,interval=1)
+    ani = animation.FuncAnimation(fig, update, frames=200, blit=True,interval=1)
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
 

@@ -81,7 +81,7 @@ def run():
 
         print(f"\niter = {iter}")
 
-        if iter > 10000:
+        if iter > 2200:
             break
         # if iter < 0:
         #     continue
@@ -140,7 +140,7 @@ def plot_results():
     axs[0].legend() 
     axs[1].legend() 
 
-    plt.show()
+    fig.savefig('velocities.jpg')
 
     # -------------------------------------- plain plot ------------------------------
     # 
@@ -154,6 +154,6 @@ def save_as_video():
 
 
 if __name__ == '__main__':
-    # run()
+    run()
     plot_results()
     # save_as_video()
