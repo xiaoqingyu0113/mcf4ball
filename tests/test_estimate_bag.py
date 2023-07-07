@@ -81,7 +81,7 @@ def run():
 
         print(f"\niter = {iter}")
 
-        if iter > 2200:
+        if iter > 1500:
             break
         # if iter < 0:
         #     continue
