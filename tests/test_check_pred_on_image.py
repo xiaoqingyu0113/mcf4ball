@@ -3,12 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
+import json
 import glob
 import yaml
 from mcf4ball.camera import CameraParam
 from mcf4ball.predictor import predict_trajectory
 
-folder_name = 'from_bag_1'
+folder_name = 'tennis_3'
 def read_yaml(file_path):
     with open(file_path, 'r') as file:
         try:
@@ -42,7 +43,46 @@ def find_closest_value_index(target, values):
     closest_value_index = min(range(len(values)), key=lambda i: abs(values[i] - target))
     return int(closest_value_index)
 
+def draw_human_keypoints(ax,pose):
 
+    # https://github.com/Fang-Haoshu/Halpe-FullBody
+    # skipped some points at feet
+    links = [(10,8), (8,6), (6,18),(18,5), (5,7), (7,9),
+             (4,2),(2,0),(0,1),(1,3),(17,18),
+             (18,19),
+             (19,12),(12,14),(14,16),(16,21),
+             (19,11),(11,13),(13,15),(15,20)]
+    
+    pts = []
+    for two in links:
+        for one in two:
+            if one not in pts:
+                pts.append(one)
+    r_pts = [8,14,16]
+    l_pts = [7,13,15]
+
+
+    # draw keypoints
+    point_size = 2
+    for rst in pose['result']:
+        uvs = rst['keypoints']
+        for pt in pts:
+            x, y = uvs[pt]
+            ax.scatter(x , y, 2, color='r')
+
+        # Link the points
+        for s,e in links:
+            if (s in r_pts) or (e in r_pts):
+                color= 'green'
+            elif (s in l_pts) or (e in l_pts):
+                color = 'orange'
+            else:
+                color = 'blue'
+            ax.plot([uvs[s][0], uvs[e][0]],[uvs[s][1], uvs[e][1]], color=color, linewidth=2)
+        
+        # label
+        cx,cy,cw,ch = rst['bbox']
+        plt.text(cx+cw//3, cy+ch,  rst['pose_label'], fontsize=12, color='y')
 
 def save_as_image_video():
     # LOAD camera
@@ -61,7 +101,7 @@ def save_as_image_video():
         reader = csv.reader(csvfile)
         data = np.array(list(reader),dtype=float)
     
-    saved_iter = data[:,0];saved_p = data[:,1:4];saved_v = data[:,4:7];saved_w = data[:,7:]
+    saved_iter = data[:,0];saved_p = data[:,1:4];saved_v = data[:,4:7];saved_w = data[:,7:10]
 
     # backproj
     est_uv = camera_param.proj2img(saved_p)
@@ -72,14 +112,13 @@ def save_as_image_video():
     est_point, = ax.plot([], [], 'b', marker='o', markersize=2,label='est')
     pred_line, = ax.plot([], [], 'orange', lw=2,label='pred')
     ball_piont, = ax.plot([], [], 'r',marker='o', markersize=5,label='ball')
-    
-    def init():
-        est_point.set_data([], [])
-        pred_line.set_data([], [])
-        ball_piont.set_data([], [])
-        return est_point, pred_line,ball_piont,
+
+    start_id =  [0]
+
     
     def update(frame):
+        frame = frame *2
+        print('frame = ', frame)
         ax.clear()
         ax.axis('off')
         plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
@@ -90,18 +129,19 @@ def save_as_image_video():
 
         curr_iter = jpg_iters[frame]
         rst_idx = find_closest_value_index(curr_iter,saved_iter)
-        offset = 0
-        if rst_idx - offset < 0:
-            rst_idx = 0
-        else:
-            rst_idx = rst_idx - offset
 
+        if np.linalg.norm(est_uv[rst_idx] - est_uv[rst_idx-1]) > 200:
+            start_id.append(rst_idx)
+        start_idx = start_id[-1]
 
-        ax.plot(est_uv[:rst_idx,0], est_uv[:rst_idx,1], 'b', marker='.', markersize=1,label='est')
+        ax.plot(est_uv[start_idx:rst_idx,0], est_uv[start_idx:rst_idx,1], 'b', marker='.', markersize=1,label='est')
 
         
         p0 = saved_p[rst_idx,:];v0 = saved_v[rst_idx,:];w0 = saved_w[rst_idx,:]
-        _,xN = predict_trajectory(p0,v0,w0,total_time=2.0,z0=0,ez=1.0)
+        if -v0[0] < 2:
+            w0 = np.zeros(3)  
+        _,xN = predict_trajectory(p0,v0,w0,total_time=2.0,z0=0.100,ez=0.7,exy=0.7,verbose=False)
+        _,xN_nospin = predict_trajectory(p0,v0,np.zeros(3),total_time=2.0,z0=0.100,ez=0.7,exy=0.7,verbose=False)
 
         pred_uv = camera_param.proj2img(xN[:,:3])
         pred_uv_onimage = []
@@ -110,20 +150,33 @@ def save_as_image_video():
                 pred_uv_onimage.append(uv)
         pred_uv_onimage = np.array(pred_uv_onimage)
 
+        pred_uv_nospin = camera_param.proj2img(xN_nospin[:,:3])
+        pred_uv_onimage_nospin = []
+        for uv in pred_uv_nospin:
+            if (0<=uv[0]<1280) and (0<=uv[1]<1024):
+                pred_uv_onimage_nospin.append(uv)
+        pred_uv_onimage_nospin = np.array(pred_uv_onimage_nospin)
+
         if len(pred_uv_onimage)>0:
-            ax.plot(pred_uv_onimage[:,0], pred_uv_onimage[:,1], 'orange', lw=1,label='pred')
-            # ball_piont, = ax.plot(est_uv[rst_idx,0], est_uv[rst_idx,1], 'r',marker='o', markersize=5,label='ball')
+            ax.plot(pred_uv_onimage[:,0], pred_uv_onimage[:,1], 'orange', lw=1,label='pred with spin')
+            ax.plot(pred_uv_onimage_nospin[:,0], pred_uv_onimage_nospin[:,1], 'red', lw=1,label='pred no spin')
         else:
             ax.plot([], [], 'orange', lw=2,label='pred')
-            # ball_piont, = ax.plot([], [], 'r',marker='o', markersize=5,label='ball')
+        ax.legend()
+
+        # pose:
+        # label_name = jpg_files[frame][:-3] + 'json'
+        # with open(label_name,'r') as file:
+        #     pose = json.load(file)
+        # draw_human_keypoints(ax,pose)
 
         return est_point, pred_line,ball_piont,
 
-    ani = animation.FuncAnimation(fig, update, frames=200, blit=True,interval=1)
+    ani = animation.FuncAnimation(fig, update, frames=500, blit=True,interval=2)
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
 
-    ani.save('image.mp4', writer=writer)
+    ani.save(folder_name+'.mp4', writer=writer)
 
 if __name__ == '__main__':
     save_as_image_video()

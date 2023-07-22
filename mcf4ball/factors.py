@@ -40,27 +40,27 @@ class LinearFactor(gtsam.CustomFactor):
         super().__init__(noiseModel, [key1, key2, key3], error_function) # may change to partial
 
 class BounceLinearFactor(gtsam.CustomFactor):
-    def __init__(self, noiseModel, key1, key2, key3,ez):
+    def __init__(self, noiseModel, key1, key2, key3,ez,exy):
        
         def error_function(self,values: gtsam.Values, jacobians: Optional[List[np.ndarray]]) -> float:
             v1, w1, v2 =  values.atVector(key1), values.atVector(key2), values.atVector(key3)
-            error = bounce_vel_linear_error(v1,w1,v2,ez)
+            error = bounce_vel_linear_error(v1,w1,v2,ez,exy)
             if jacobians is not None:
                     # print(bounce_vel_linear_jacobian(v1,w1,v2))
-                    assign_jacobians(jacobians,bounce_vel_linear_jacobian(v1,w1,v2,ez))
+                    assign_jacobians(jacobians,bounce_vel_linear_jacobian(v1,w1,v2,ez,exy))
             return error
         
         super().__init__(noiseModel, [key1, key2, key3], error_function) # may change to partial
 
 class BounceAngularFactor(gtsam.CustomFactor):
-    def __init__(self, noiseModel, key1, key2, key3,ez):
+    def __init__(self, noiseModel, key1, key2, key3,ez,exy):
        
         def error_function(self,values: gtsam.Values, jacobians: Optional[List[np.ndarray]]) -> float:
             v1, w1, w2 =  values.atVector(key1), values.atVector(key2), values.atVector(key3)
 
-            error = bounce_vel_angular_error(v1,w1,w2,ez)
+            error = bounce_vel_angular_error(v1,w1,w2,ez,exy)
             if jacobians is not None:
-                    assign_jacobians(jacobians,bounce_vel_angular_jacobian(v1,w1,w2,ez))
+                    assign_jacobians(jacobians,bounce_vel_angular_jacobian(v1,w1,w2,ez,exy))
             return error
         
         super().__init__(noiseModel, [key1, key2, key3], error_function) # may change to partial

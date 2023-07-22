@@ -47,30 +47,30 @@ def vel_angular_jacobian(_Dummy_40, _Dummy_41, _Dummy_42, t1, t2, _Dummy_43):
     return (array([[0, 0, 0], [0, 0, 0], [0, 0, 0]]), array([[-1, 0, 0], [0, -1, 0], [0, 0, -1]]), array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),)
 
 @numba.jit(cache=True,nopython=True)
-def bounce_vel_linear_error(_Dummy_44, _Dummy_45, _Dummy_46, ez):
+def bounce_vel_linear_error(_Dummy_44, _Dummy_45, _Dummy_46, ez, exy):
     [v1x, v1y, v1z] = _Dummy_44
     [w1x, w1y, w1z] = _Dummy_45
     [v2_1, v2_2, v2_3] = _Dummy_46
-    return array([[-0.644760213143872*v1x + v2_1 - 0.0117229129662522*w1y], [-0.644760213143872*v1y + v2_2 + 0.0117229129662522*w1x], [ez*v1z + v2_3]])
+    return array([[-exy*(0.644760213143872*v1x + 0.0117229129662522*w1y) + v2_1], [-exy*(0.644760213143872*v1y - 0.0117229129662522*w1x) + v2_2], [ez*v1z + v2_3]])
 
 # @numba.jit(cache=True,nopython=True)
-def bounce_vel_linear_jacobian(_Dummy_47, _Dummy_48, _Dummy_49, ez):
+def bounce_vel_linear_jacobian(_Dummy_47, _Dummy_48, _Dummy_49, ez, exy):
     [v1x, v1y, v1z] = _Dummy_47
     [w1x, w1y, w1z] = _Dummy_48
     [v2_1, v2_2, v2_3] = _Dummy_49
-    return (array([[-0.644760213143872, 0, 0], [0, -0.644760213143872, 0], [0, 0, ez]]), array([[0, -0.0117229129662522, 0], [0.0117229129662522, 0, 0], [0, 0, 0]]), array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),)
+    return (array([[-0.644760213143872*exy, 0, 0], [0, -0.644760213143872*exy, 0], [0, 0, ez]]), array([[0, -0.0117229129662522*exy, 0], [0.0117229129662522*exy, 0, 0], [0, 0, 0]]), array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),)
 
 @numba.jit(cache=True,nopython=True)
-def bounce_vel_angular_error(_Dummy_50, _Dummy_51, _Dummy_52, ez):
+def bounce_vel_angular_error(_Dummy_50, _Dummy_51, _Dummy_52, ez, exy):
     [v1x, v1y, v1z] = _Dummy_50
     [w1x, w1y, w1z] = _Dummy_51
     [w2_1, w2_2, w2_3] = _Dummy_52
-    return array([[19.538188277087*v1y - 0.355239786856128*w1x + w2_1], [-19.538188277087*v1x - 0.355239786856128*w1y + w2_2], [-w1z + w2_3]])
+    return array([[30.3030303030303*exy*(0.644760213143872*v1y - 0.0117229129662522*w1x) + w2_1], [-30.3030303030303*exy*(0.644760213143872*v1x + 0.0117229129662522*w1y) + w2_2], [-w1z + w2_3]])
 
 # @numba.jit(cache=True,nopython=True)
-def bounce_vel_angular_jacobian(_Dummy_53, _Dummy_54, _Dummy_55, ez):
+def bounce_vel_angular_jacobian(_Dummy_53, _Dummy_54, _Dummy_55, ez, exy):
     [v1x, v1y, v1z] = _Dummy_53
     [w1x, w1y, w1z] = _Dummy_54
     [w2_1, w2_2, w2_3] = _Dummy_55
-    return (array([[0, 19.538188277087, 0], [-19.538188277087, 0, 0], [0, 0, 0]]), array([[-0.355239786856128, 0, 0], [0, -0.355239786856128, 0], [0, 0, -1]]), array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),)
+    return (array([[0, 19.538188277087*exy, 0], [-19.538188277087*exy, 0, 0], [0, 0, 0]]), array([[-0.355239786856128*exy, 0, 0], [0, -0.355239786856128*exy, 0], [0, 0, -1]]), array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),)
 

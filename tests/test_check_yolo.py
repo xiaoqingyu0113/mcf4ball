@@ -16,9 +16,9 @@ from mcf4ball.draw_util import  set_axes_equal,comet
 from mcf4ball.camera import  load_params, triangulation
 
 CURRENT_DIR = os.path.dirname(__file__)
-
+folder_name = 'from_bag_2'
 def load_data():
-    with open('from_bag_1/detections.csv', mode='r') as file:
+    with open(folder_name + '/detections.csv', mode='r') as file:
         reader = csv.reader(file)
         data_list = [row for row in reader]
     
@@ -30,7 +30,7 @@ def load_data():
     return data_array
 
 def load_img():
-    jpg_files = glob.glob('from_bag_1/*.jpg')
+    jpg_files = glob.glob(folder_name +'/*.jpg')
     jpg_files.sort()
     return jpg_files
 
@@ -53,11 +53,11 @@ def main():
         iter = int(data[0])
         camera_id = int(data[2])
         u = int(float(data[3]));v = int(float(data[4]))
-        if iter > 2000:
+        if iter > 7000:
             break
         if camera_id == 2:
             image_iter = find_closest_value(iter,jpg_iters)
-            image_path = f'from_bag_1/img_{image_iter:06d}.jpg'
+            image_path = f'{folder_name}/img_{image_iter:06d}.jpg'
             image = cv2.imread(image_path)
             cv2.circle(image, (u, v), 10, (0, 0, 255), 2)  # Draws a red circle with radius 10 and thickness 2
             # Display the image (optional)
