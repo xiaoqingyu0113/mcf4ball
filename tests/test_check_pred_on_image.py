@@ -8,8 +8,10 @@ import glob
 import yaml
 from mcf4ball.camera import CameraParam
 from mcf4ball.predictor import predict_trajectory
+import mcf4ball.parameters as param
 
-folder_name = 'tennis_3'
+folder_name = 'dataset/tennis_5'
+
 def read_yaml(file_path):
     with open(file_path, 'r') as file:
         try:
@@ -140,8 +142,19 @@ def save_as_image_video():
         p0 = saved_p[rst_idx,:];v0 = saved_v[rst_idx,:];w0 = saved_w[rst_idx,:]
         if -v0[0] < 2:
             w0 = np.zeros(3)  
-        _,xN = predict_trajectory(p0,v0,w0,total_time=2.0,z0=0.100,ez=0.7,exy=0.7,verbose=False)
-        _,xN_nospin = predict_trajectory(p0,v0,np.zeros(3),total_time=2.0,z0=0.100,ez=0.7,exy=0.7,verbose=False)
+        _,xN = predict_trajectory(p0,v0,w0,
+                                  total_time=2.0,
+                                  z0=param.ground_z0,
+                                  ez=param.ez,
+                                  exy=param.exy,
+                                  verbose=False)
+        
+        _,xN_nospin = predict_trajectory(p0,v0,np.zeros(3),
+                                         total_time=2.0,
+                                         z0=param.ground_z0,
+                                         ez=param.ez,
+                                         exy=param.exy,
+                                         verbose=False)
 
         pred_uv = camera_param.proj2img(xN[:,:3])
         pred_uv_onimage = []
@@ -172,11 +185,11 @@ def save_as_image_video():
 
         return est_point, pred_line,ball_piont,
 
-    ani = animation.FuncAnimation(fig, update, frames=500, blit=True,interval=2)
+    ani = animation.FuncAnimation(fig, update, frames=20000, blit=True,interval=2)
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
 
-    ani.save(folder_name+'.mp4', writer=writer)
+    ani.save('results/'+folder_name.split('/')[-1]+'.mp4', writer=writer)
 
 if __name__ == '__main__':
     save_as_image_video()

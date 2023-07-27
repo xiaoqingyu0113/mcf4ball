@@ -3,6 +3,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import matplotlib.animation as animation
 import numpy as np
+import mcf4ball.parameters as param
 
 def axis_equal(ax,X,Y,Z):
    # Set the limits of the axes to be equal
@@ -150,7 +151,7 @@ def comet(saved_p, saved_v, saved_w,predict_trajectory):
             p0 = saved_p[frame,:];v0 = saved_v[frame,:];w0 = saved_w[frame,:]
         else:
             p0 = saved_p[frame,:];v0 = saved_v[frame,:];w0 = saved_w[frame,:]*frame/trust_steps
-        _,xN = predict_trajectory(p0,v0,w0,total_time=2.0,z0=0)
+        _,xN = predict_trajectory(p0,v0,w0,total_time=2.0,z0=param.ground_z0,Cd=param.Cd,Le=param.Le,ez=param.ez,exy=param.exy)
 
         ball_piont.set_data([p0[0]], [p0[1]])
         ball_piont.set_3d_properties([p0[2]])

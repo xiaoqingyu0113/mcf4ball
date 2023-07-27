@@ -4,7 +4,7 @@ import gtsam
 from gtsam.symbol_shorthand import X,L,V,W
 from mcf4ball.factors import PositionFactor,LinearFactor, BounceLinearFactor, BounceAngularFactor,PriorFactor3
 from mcf4ball.camera import triangulation
-        
+
 class IsamSolver:
     def __init__(self,camera_param_list,
                     Cd = 0.55,
@@ -26,7 +26,7 @@ class IsamSolver:
         self.angular_prior = angular_prior
         self.verbose = verbose
 
-        self.bp_error = 80
+        self.bp_error = 50
         self.cam_mix_ratio = 0.3
         self.uv_noise = gtsam.noiseModel.Isotropic.Sigma(2, 2.0)  # 2 pixels error
         self.camera_calibration_noise = gtsam.noiseModel.Diagonal.Sigmas(np.ones(6)*1e-6) 
@@ -44,6 +44,7 @@ class IsamSolver:
         self.num_optim = 0
         self.start_optim = False
         self.prev_L = deque()
+        self.prev_V = deque()
 
         parameters = gtsam.ISAM2Params()
         self.isam = gtsam.ISAM2(parameters)
@@ -95,6 +96,7 @@ class IsamSolver:
             uv1 = camera_param.proj2img(rst[0]) 
             error = np.sqrt((uv1[0] - u)**2 + (uv1[1]-v)**2)
             if error > self.bp_error:
+                print(f'bp error too large ({error})! reset!')
                 self.end_optim = True
                 
             if self.verbose:
@@ -261,17 +263,23 @@ class IsamSolver:
 
             if len(self.prev_L)>10:
                 self.prev_L.popleft()
+                self.prev_V.popleft()
             self.prev_L.append(l)
+            self.prev_V.append(v)
 
             prev_l = self.prev_L[0]
+            prev_v = self.prev_V[0]
 
             if self.verbose:
                 print(f'get result: (L({self.curr_node_idx}),V({self.curr_node_idx}),W({self.num_w}))')
 
-            if len(self.prev_L) >= 10 and np.linalg.norm(prev_l - l) < 1.00: # some filtering
+            if len(self.prev_L) < 10:
+                return None
+            elif len(self.prev_L) >= 10 and np.linalg.norm(prev_l - l) < 1.0: # some filtering
                 return l,v,w
-            elif np.linalg.norm(prev_l - l) > 1.00:
-                print("pred not consistant! reset!")
+            else:
+                if self.verbose:
+                    print("pred not consistant! reset!")
                 self.reset()
                 return None
 

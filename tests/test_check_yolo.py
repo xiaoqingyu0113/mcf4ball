@@ -16,7 +16,7 @@ from mcf4ball.draw_util import  set_axes_equal,comet
 from mcf4ball.camera import  load_params, triangulation
 
 CURRENT_DIR = os.path.dirname(__file__)
-folder_name = 'from_bag_2'
+folder_name = 'dataset/tennis_1'
 def load_data():
     with open(folder_name + '/detections.csv', mode='r') as file:
         reader = csv.reader(file)

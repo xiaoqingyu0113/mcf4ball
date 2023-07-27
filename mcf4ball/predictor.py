@@ -7,7 +7,6 @@ from mcf4ball.camera import axis_equal
 from mcf4ball.dynamics import ball_bouncing as bounce
 from mcf4ball.dynamics import ball_dynamics_with_spin_aero_friction as aero
 
-
 def rk4_nextStep(fun,t0,y0,tf):
     y0 = np.array(y0)
     h = tf-t0
@@ -34,7 +33,7 @@ def predict_trajectory(p0,v0,w0,total_time=10,z0=0,Cd=0.55,Le=1.5,ez=0.79,exy=1.
     for i in range(1,N_steps):
         x0 = rk4_nextStep(lambda x: aero.dynamic_forward(x,[Cd,Le]),time_ticks[i-1],x0,time_ticks[i])
         if (x0[2] < z0) and (x0[5]<0):
-            vw0 = bounce.dynamic_forward(x0[3:],ez)[0]
+            vw0 = bounce.dynamic_forward(x0[3:],ez,exy)[0]
             x0[3:] = vw0
         xN.append(x0)
     xN = np.array(xN)

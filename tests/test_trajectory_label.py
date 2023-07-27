@@ -5,6 +5,8 @@ import yaml
 import os
 import matplotlib.pyplot as plt
 
+import mcf4ball.parameters as param
+
 from mcf4ball.estimator import IsamSolver
 from mcf4ball.predictor import predict_trajectory
 
@@ -13,7 +15,6 @@ from mcf4ball.camera import  CameraParam
 from gtsam.symbol_shorthand import X,L,V,W
 
 CURRENT_DIR = os.path.dirname(__file__)
-folder_name = 'tennis_3'
 
 
 def convert2camParam(params):
@@ -25,7 +26,7 @@ def convert2camParam(params):
         camera_params.append(CameraParam(K,R,t))
     return camera_params
 
-def load_data():
+def load_data(folder_name):
     with open(folder_name+'/detections.csv', mode='r') as file:
         reader = csv.reader(file)
         data_list = []
@@ -44,8 +45,8 @@ def read_yaml(file_path):
             print(f"Error reading YAML file: {e}")
 
 
-def run():
-    data_array = load_data()
+def run(folder_name):
+    data_array = load_data(folder_name)
     camera_names = ['22495525','22495526','22495527','23045007','23045008','23045009']
     raw_params = [read_yaml('camera_calibration_data/'+cname+'_calibration.yaml') for cname in camera_names]
     camera_param_list = convert2camParam(raw_params)
@@ -53,11 +54,15 @@ def run():
     saved_p = [];saved_v = [];saved_w = [];saved_w0 = [];saved_iter = []; saved_gid = [];saved_time = []
 
     graph_minimum_size = 20
+    angular_prior = np.array([0,0,0])*6.28
 
-    angular_prior = np.array([-5,-16,-10])*6.28
-
-
-    gtsam_solver = IsamSolver(camera_param_list,verbose=False,graph_minimum_size=graph_minimum_size,ez=0.7,exy=0.7,angular_prior=angular_prior)
+    gtsam_solver = IsamSolver(camera_param_list,
+                              verbose = False,
+                              graph_minimum_size = graph_minimum_size,
+                              ez = param.ez,
+                              exy = param.exy,
+                               ground_z0=param.ground_z0,
+                              angular_prior = angular_prior)
 
     for d in data_array:
         iter = int(d[0])
@@ -67,10 +72,10 @@ def run():
         data.append(float(d[3]))
         data.append(float(d[4]))
 
-
-        print(f"\niter = {iter}")
-        if iter > 5000:
-            break
+        if iter % 2000 == 0:
+            print(f"iter = {iter}")
+        # if iter > 5000:
+        #     break
 
         gtsam_solver.push_back(data)
         rst = gtsam_solver.get_result()
@@ -84,7 +89,7 @@ def run():
             saved_gid.append(gtsam_solver.curr_node_idx)
             saved_time.append(float(d[1]))
 
-
+    # save as numpy array
     saved_p = np.array(saved_p)
     saved_v = np.array(saved_v)
     saved_w = np.array(saved_w)
@@ -95,7 +100,7 @@ def run():
 
     saved_data = np.concatenate((saved_iter,saved_p,saved_v,saved_w,saved_w0,saved_gid,saved_time),axis=1)
 
-
+    # write to harddrive
     with open(folder_name+'/d_results.csv', 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerows(saved_data)
@@ -110,7 +115,7 @@ def seperate_traj(gid):
     return seperator
 
 
-def plot_results():
+def plot_results(folder_name):
     # Open the CSV file in read mode
     with open(folder_name+'/d_results.csv', 'r') as csvfile:
         reader = csv.reader(csvfile)
@@ -130,19 +135,18 @@ def plot_results():
         if len(saved_p) > minimum_traj_size:
             ax.plot(saved_p[:,0], saved_p[:,1],saved_p[:,2], '.', markerfacecolor='black', markersize=3)
     else:
-        if traj_seperator[0]> minimum_traj_size:
-            ax.plot(saved_p[:traj_seperator[0],0], saved_p[:traj_seperator[0],1],saved_p[:traj_seperator[0],2], '.', markerfacecolor='black', markersize=3)
-        if len(saved_p) - traj_seperator[-1] > minimum_traj_size:
-            ax.plot(saved_p[traj_seperator[-1]:,0], saved_p[traj_seperator[-1]:,1],saved_p[traj_seperator[-1]:,2], '.', markerfacecolor='black', markersize=3)
+        # if traj_seperator[0]> minimum_traj_size:
+        #     ax.plot(saved_p[:traj_seperator[0],0], saved_p[:traj_seperator[0],1],saved_p[:traj_seperator[0],2], '.', markerfacecolor='black', markersize=3)
+        # if len(saved_p) - traj_seperator[-1] > minimum_traj_size:
+        #     ax.plot(saved_p[traj_seperator[-1]:,0], saved_p[traj_seperator[-1]:,1],saved_p[traj_seperator[-1]:,2], '.', markerfacecolor='black', markersize=3)
         if len(traj_seperator)>1:
             for i in range(len(traj_seperator)-1):
-                if traj_seperator[i+1] - traj_seperator[i] > minimum_traj_size:
+                if (traj_seperator[i+1] - traj_seperator[i] > minimum_traj_size) and (np.abs(saved_p[traj_seperator[i],0] -saved_p[traj_seperator[i+1],0]) > 5.0):
                     ax.plot(saved_p[traj_seperator[i]:traj_seperator[i+1],0], 
                             saved_p[traj_seperator[i]:traj_seperator[i+1],1],
                             saved_p[traj_seperator[i]:traj_seperator[i+1],2],
                             '.', markerfacecolor='black', markersize=3)
-
-
+                    
     ax.set_title('uses cameras 1-3')
     set_axes_equal(ax)
     draw_tennis_court(ax)
@@ -174,6 +178,8 @@ def save_as_video():
     comet(saved_p[::3],saved_v[::3],saved_w[::3],predict_trajectory)
 
 if __name__ == '__main__':
-    run()
-    plot_results()
-    save_as_video()
+    folder_name = 'dataset/tennis_4'
+
+    # run(folder_name)
+    plot_results(folder_name)
+    # save_as_video()
