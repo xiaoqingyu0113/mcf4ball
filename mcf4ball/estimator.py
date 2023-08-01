@@ -96,7 +96,7 @@ class IsamSolver:
             uv1 = camera_param.proj2img(rst[0]) 
             error = np.sqrt((uv1[0] - u)**2 + (uv1[1]-v)**2)
             if error > self.bp_error:
-                print(f'bp error too large ({error})! reset!')
+                # print(f'bp error too large ({error})! reset!')
                 self.end_optim = True
                 
             if self.verbose:
