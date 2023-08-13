@@ -15,6 +15,9 @@ from mcf4ball.draw_util import  set_axes_equal,comet,draw_tennis_court, plot_sph
 from mcf4ball.camera import  CameraParam
 from gtsam.symbol_shorthand import X,L,V,W
 
+'''
+iterate and minimize the error at the beginning and in the end
+'''
 CURRENT_DIR = os.path.dirname(__file__)
 
 
@@ -66,7 +69,10 @@ def run_label(folder_name):
         angular_prior = np.array([0,0,0])*6.28
         error = np.inf
         start_idx, end_idx, start_iter, end_iter = s_index
-        while error > .5 * np.pi*2:
+        sol_count = 0
+
+        while error > .5 * np.pi*2 and sol_count < 100:
+            
             gtsam_solver = IsamSolver(camera_param_list,
                                     verbose = False,
                                     graph_minimum_size = graph_minimum_size,
@@ -78,7 +84,7 @@ def run_label(folder_name):
 
             for d in data_array:
                 iter = int(d[0])
-                if iter < start_iter-graph_minimum_size:
+                if iter < start_iter:
                     continue
                 if iter >= end_iter:
                     break
@@ -105,15 +111,22 @@ def run_label(folder_name):
             prev_angular_prior = angular_prior
             angular_prior = saved_w0[-1]
             error = np.linalg.norm(prev_angular_prior - angular_prior)
-            print(error)
+            sol_count += 1
+            print(f"-------------\ncount = {sol_count}, error = {error}")
+            print(f"w0 beginning = {saved_w0[0]}")
+            # print(f"prev_angular_prior = {prev_angular_prior}")
+            print(f"w0 end = {saved_w0[-1]}")
 
+            
         spin_priors.append(angular_prior)
+        print(spin_priors)
 
     spin_priors = np.array(spin_priors)
     with open(folder_name+'/d_spin_priors.csv', 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerows(spin_priors)
     print('spin priors successfully written in ' + folder_name)
+
     # save as numpy array
     # saved_p = np.array(saved_p)
     # saved_v = np.array(saved_v)
@@ -140,7 +153,17 @@ def run_label(folder_name):
 
     # fig.savefig('velocities.jpg')
     
-
+def show_label(folder_name):
+    with open(folder_name+'/d_spin_priors.csv', 'r', newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        spins = np.array(list(reader),dtype=float)/(2*np.pi)
+    indices = np.arange(len(spins))
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.scatter(indices,spins[:,0],20)
+    ax.scatter(indices, spins[:,1],20)
+    ax.scatter(indices,spins[:,2],20)
+    plt.show()
 if __name__ == '__main__':
     folders = glob.glob('dataset/tennis_*')
     for folder_name in folders:
@@ -148,6 +171,8 @@ if __name__ == '__main__':
         run_label(folder_name)
 
 
-    # folder_name = 'dataset/tennis_10'
+    # folder_name = 'dataset/tennis_2'
     # run_label(folder_name)
 
+    # folder_name = 'dataset/tennis_10'
+    # show_label(folder_name)

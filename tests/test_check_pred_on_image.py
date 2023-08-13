@@ -10,7 +10,7 @@ from mcf4ball.camera import CameraParam
 from mcf4ball.predictor import predict_trajectory
 import mcf4ball.parameters as param
 
-folder_name = 'dataset/tennis_5'
+
 
 def read_yaml(file_path):
     with open(file_path, 'r') as file:
@@ -83,10 +83,10 @@ def draw_human_keypoints(ax,pose):
             ax.plot([uvs[s][0], uvs[e][0]],[uvs[s][1], uvs[e][1]], color=color, linewidth=2)
         
         # label
-        cx,cy,cw,ch = rst['bbox']
-        plt.text(cx+cw//3, cy+ch,  rst['pose_label'], fontsize=12, color='y')
+        # cx,cy,cw,ch = rst['bbox']
+        # plt.text(cx+cw//3, cy+ch,  rst['pose_label'], fontsize=12, color='y')
 
-def save_as_image_video():
+def save_as_image_video(folder_name):
     # LOAD camera
     camera_id = 1
     camera_names = ['22495525','22495526','22495527','23045007','23045008','23045009']
@@ -185,11 +185,12 @@ def save_as_image_video():
 
         return est_point, pred_line,ball_piont,
 
-    ani = animation.FuncAnimation(fig, update, frames=20000, blit=True,interval=2)
+    ani = animation.FuncAnimation(fig, update, frames=100000, blit=True,interval=2)
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
 
     ani.save('results/'+folder_name.split('/')[-1]+'.mp4', writer=writer)
 
 if __name__ == '__main__':
-    save_as_image_video()
+    folder_name = 'dataset/tennis_1'
+    save_as_image_video(folder_name)

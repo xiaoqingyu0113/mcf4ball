@@ -5,6 +5,7 @@ import yaml
 import os
 import glob
 import matplotlib.pyplot as plt
+import bisect
 
 import mcf4ball.parameters as param
 
@@ -46,7 +47,7 @@ def read_yaml(file_path):
             print(f"Error reading YAML file: {e}")
 
 
-def run(folder_name):
+def run_and_save_estimation(folder_name):
     data_array = load_data(folder_name)
     camera_names = ['22495525','22495526','22495527','23045007','23045008','23045009']
     raw_params = [read_yaml('camera_calibration_data/'+cname+'_calibration.yaml') for cname in camera_names]
@@ -55,7 +56,22 @@ def run(folder_name):
     saved_p = [];saved_v = [];saved_w = [];saved_w0 = [];saved_iter = []; saved_gid = [];saved_time = []
 
     graph_minimum_size = 20
+
     angular_prior = np.array([0,0,0])*6.28
+    
+    try:
+        with open(folder_name+'/d_spin_priors.csv', 'r', newline='') as csvfile:
+            reader = csv.reader(csvfile)
+            saved_priors = np.array(list(reader),dtype=float)
+        with open(folder_name+'/d_sperate_id.csv', 'r', newline='') as csvfile:
+            reader = csv.reader(csvfile)
+            separate_indices = np.array(list(reader),dtype=int)
+        
+    except:
+        saved_priors = None
+        separate_indices = None
+
+
 
     gtsam_solver = IsamSolver(camera_param_list,
                               verbose = False,
@@ -77,6 +93,12 @@ def run(folder_name):
             print(f"iter = {iter}/{int(data_array[-1][0])}")
         # if iter > 5000:
         #     break
+
+        if (separate_indices is not None) and (saved_priors is not None) :
+            N_traj = len(saved_priors)
+            just_before_iter_index = bisect.bisect_left(separate_indices[:,2], iter)
+            just_before_iter_index = just_before_iter_index if just_before_iter_index < N_traj else N_traj-1
+            gtsam_solver.angular_prior = saved_priors[just_before_iter_index,:]
 
         gtsam_solver.push_back(data)
         rst = gtsam_solver.get_result()
@@ -169,6 +191,36 @@ def plot_results(folder_name):
     plt.show()
 
 
+def plot_spin(folder_name):
+    # Open the CSV file in read mode
+    with open(folder_name+'/d_results.csv', 'r') as csvfile:
+        reader = csv.reader(csvfile)
+        data = np.array(list(reader),dtype=float)
+    
+    with open(folder_name+'/d_sperate_id.csv', 'r', newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        separate_indices = np.array(list(reader),dtype=int)
+
+
+    saved_iter = data[:,0];saved_p = data[:,1:4];saved_v = data[:,4:7]
+    saved_w = data[:,7:10]; saved_w0 = data[:,10:13]
+    saved_gid = data[:,13]; saved_time = data[:,14]
+    
+    
+    fig, axs = plt.subplots(4, 5, figsize=(12, 10))
+    axs = axs.flatten()
+    for trj, (i, j) in enumerate(separate_indices[:,:2]):
+
+        # axs[trj].plot(np.arange(i,j),saved_w[i:j,0],'-')
+        # axs[trj].plot(np.arange(i,j),saved_w[i:j,1],'-')
+        # axs[trj].plot(np.arange(i,j),saved_w[i:j,2],'-')
+ 
+        axs[trj].plot(np.arange(i,j),saved_w0[i:j,0],'--',label='x')
+        axs[trj].plot(np.arange(i,j),saved_w0[i:j,1],'--',label='y')
+        axs[trj].plot(np.arange(i,j),saved_w0[i:j,2],'--',label='z')
+        axs[trj].set_title(f'traj = {trj}')
+        axs[trj].legend()
+    fig.savefig(f"results/{folder_name.split('/')[-1]}_spin")
 
 def save_as_video():
     # Open the CSV file in read mode
@@ -182,11 +234,16 @@ if __name__ == '__main__':
     folders = glob.glob('dataset/tennis_*')
     for folder_name in folders:
         print('processing ' + folder_name)
-        run(folder_name)
-        save_separate_idx(folder_name)
 
-    # folder_name = 'dataset/tennis_10'
-    # run(folder_name)
+        run_and_save_estimation(folder_name)
+        save_separate_idx(folder_name)
+        plot_spin(folder_name)
+
+
+    # folder_name = 'dataset/tennis_1'
+    # run(folder_name) # save the estimation result
+
     # save_separate_idx(folder_name)
     # plot_results(folder_name)
+    # plot_spin(folder_name)
     # save_as_video()

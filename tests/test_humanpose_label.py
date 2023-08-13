@@ -28,11 +28,11 @@ def filt_poses(poses):
         head_pts = kpts[17]
         left_feet = kpts[20]
         # print(np.linalg.norm(head_pts - left_feet))
-        if np.linalg.norm(head_pts - left_feet)<100:
+        if np.linalg.norm(head_pts - left_feet)<70:
             del poses['result'][idx]
 
 
-def run_and_show_in_image(folder_name ):
+def run_and_show_in_image(folder_name, seq_size=8,skip_iter=10 ):
     settings = Settings()
     pose_detector = SingleImageAlphaPose(settings, settings.get_cfg())
     iters = get_image_iters(folder_name)
@@ -43,7 +43,7 @@ def run_and_show_in_image(folder_name ):
         separate_indices = np.array(list(reader),dtype=int)
     
     begin_iter = separate_indices[0][2]
-    human_pose_iters = get_human_pose_iters(iters, begin_iter,sequence_size = 8, skip_iter= 10)
+    human_pose_iters = get_human_pose_iters(iters, begin_iter,sequence_size = seq_size, skip_iter= skip_iter)
     img_names = get_image_from_iters(folder_name, human_pose_iters)
 
     image_vis = image = Image.open(img_names[-1])
@@ -76,7 +76,10 @@ def run_and_save(folder_name,seq_size = 24, skip_iter = 3):
             image = Image.open(img_name)        
             pose = pose_detect(image,pose_detector)
             filt_poses(pose)
-            curr_poses.append(pose['result'][0]['keypoints'].numpy())
+            if len(pose['result'])==1:
+                curr_poses.append(pose['result'][0]['keypoints'].numpy())
+            else:
+                raise
         curr_poses = np.concatenate(curr_poses)
         saved_poses.append(curr_poses)
     saved_poses = np.concatenate(saved_poses)
@@ -94,6 +97,9 @@ def show_detections(folder_name,seq_size = 24):
     with open(Path(f'dataset/{folder_name}/d_human_poses.csv'),'r', newline='') as csvfile:
         reader = csv.reader(csvfile)
         human_poses = np.array(list(reader),dtype=float)
+    with open(Path(f'dataset/{folder_name}/d_spin_priors.csv'),'r', newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        spins = np.array(list(reader),dtype=float)
 
     N = len(separate_indices)
     
@@ -109,11 +115,12 @@ def show_detections(folder_name,seq_size = 24):
             # draw skeleton
             for ind, ps in enumerate(human_poses[traj_idx]):
                 draw_human_keypoints_plt(ax,ps,al = 0.0 + 1.0*ind/(seq_size-1))
-            
+            # show spin text
+            ax.text(40,0,",".join(["{:.1f}".format(s) for s in spins[traj_idx]]))
             # draw stroke
             for st_idx in range(1,seq_size):
                 ax.plot(human_poses[traj_idx,[st_idx-1, st_idx],10,0],human_poses[traj_idx,[st_idx-1,st_idx],10,1],color = 'purple', linewidth=4, alpha=1.0*st_idx/(seq_size-1))
-            
+
             ax.text(0.5, -0.1, str(traj_idx), ha='center', va='center', transform=ax.transAxes)
 
         ax.invert_yaxis()
@@ -126,7 +133,9 @@ def show_detections(folder_name,seq_size = 24):
 if __name__ == '__main__':
     
     for i in range(1,11):
+    # i=10
         folder_name = 'tennis_' + str(i)
-        seq_size = 8
-        # run_and_save(folder_name,seq_size=seq_size,skip_iter=3)
+        seq_size = 100
+        skip_iter = 1
+        # run_and_save(folder_name,seq_size=seq_size,skip_iter=skip_iter)
         show_detections(folder_name,seq_size=seq_size)
