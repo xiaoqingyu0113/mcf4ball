@@ -164,3 +164,4 @@ from_bag*
 *.jpg
 tennis_*/
 results/
+*.pth

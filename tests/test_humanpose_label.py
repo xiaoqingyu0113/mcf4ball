@@ -22,14 +22,37 @@ def get_human_pose_iters(iters, num, sequence_size = 8, skip_iter = 5):
 def get_image_from_iters(folder_name, iters):
     return [Path(f'dataset/{folder_name}/cam2_{iter:06d}.jpg') for iter in iters]
 
+def dist_head_feet(rst):
+    kpts = rst['keypoints'].numpy()
+    head_pts = kpts[17]
+    left_feet = kpts[20]
+    return np.linalg.norm(head_pts - left_feet)
+        
+        
 def filt_poses(poses):
+    # print('----filter----------')
+    max_dist = 0
+    max_rst = None
     for idx,rst in enumerate(poses['result']):
-        kpts = rst['keypoints'].numpy()
-        head_pts = kpts[17]
-        left_feet = kpts[20]
-        # print(np.linalg.norm(head_pts - left_feet))
-        if np.linalg.norm(head_pts - left_feet)<70:
-            del poses['result'][idx]
+        di = dist_head_feet(rst)
+        if di > max_dist:
+            max_dist = di
+            max_rst = rst
+    poses['result'] = [max_rst]
+
+
+    # for idx,rst in enumerate(poses['result']):
+    #     kpts = rst['keypoints'].numpy()
+    #     head_pts = kpts[17]
+    #     left_feet = kpts[20]
+    #     # print(np.linalg.norm(head_pts - left_feet))
+    #     # print(np.linalg.norm(head_pts - left_feet))
+    #     if np.linalg.norm(head_pts - left_feet)<70:
+    #         delete_idx.append(idx)
+    # accm = 0
+    # for idx in delete_idx:
+    #     del poses['result'][idx-accm]
+    #     accm +=1
 
 
 def run_and_show_in_image(folder_name, seq_size=8,skip_iter=10 ):
@@ -79,6 +102,11 @@ def run_and_save(folder_name,seq_size = 24, skip_iter = 3):
             if len(pose['result'])==1:
                 curr_poses.append(pose['result'][0]['keypoints'].numpy())
             else:
+                for idx,rst in enumerate(pose['result']):
+                    kpts = rst['keypoints'].numpy()
+                    head_pts = kpts[17]
+                    left_feet = kpts[20]
+                    print(np.linalg.norm(head_pts - left_feet))
                 raise
         curr_poses = np.concatenate(curr_poses)
         saved_poses.append(curr_poses)
@@ -137,5 +165,5 @@ if __name__ == '__main__':
         folder_name = 'tennis_' + str(i)
         seq_size = 100
         skip_iter = 1
-        # run_and_save(folder_name,seq_size=seq_size,skip_iter=skip_iter)
+        run_and_save(folder_name,seq_size=seq_size,skip_iter=skip_iter)
         show_detections(folder_name,seq_size=seq_size)

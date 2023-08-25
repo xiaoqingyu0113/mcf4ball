@@ -48,6 +48,10 @@ def read_yaml(file_path):
 
 
 def run_and_save_estimation(folder_name):
+    '''
+    1. compute the 3d estimation of balls using yolo detector
+    2. save in d_results.csv
+    '''
     data_array = load_data(folder_name)
     camera_names = ['22495525','22495526','22495527','23045007','23045008','23045009']
     raw_params = [read_yaml('camera_calibration_data/'+cname+'_calibration.yaml') for cname in camera_names]
@@ -80,7 +84,6 @@ def run_and_save_estimation(folder_name):
                               exy = param.exy,
                                ground_z0=param.ground_z0,
                               angular_prior = angular_prior)
-
     for d in data_array:
         iter = int(d[0])
         data = []
@@ -91,14 +94,48 @@ def run_and_save_estimation(folder_name):
 
         if iter % 10000 == 0:
             print(f"iter = {iter}/{int(data_array[-1][0])}")
-        # if iter > 5000:
-        #     break
+ 
+        # gtsam_solver.angular_prior = np.zeros(3)
+        if (separate_indices is not None) and (saved_priors is not None):
+            if iter < separate_indices[0,2]:
+                gtsam_solver.set_angular_prior(saved_priors[0,:])
+            else:
+                for i_spin in range(1,len(separate_indices)):
+                    if separate_indices[i_spin-1,3] < iter and separate_indices[i_spin,2] > iter:
+                        gtsam_solver.set_angular_prior(saved_priors[i_spin,:])
+                
 
-        if (separate_indices is not None) and (saved_priors is not None) :
-            N_traj = len(saved_priors)
-            just_before_iter_index = bisect.bisect_left(separate_indices[:,2], iter)
-            just_before_iter_index = just_before_iter_index if just_before_iter_index < N_traj else N_traj-1
-            gtsam_solver.angular_prior = saved_priors[just_before_iter_index,:]
+            # for i_spin,(s,e) in enumerate(separate_indices[:,2:4]):
+            #     # if iter > s and iter <= e:
+            #     if iter == s:
+            #         gtsam_solver.set_angular_prior(saved_priors[i_spin,:])
+
+                        # print(iter, len(saved_w0))
+
+        # if gtsam_solver.graph.size() >10:
+        #     print('--------------------------------------')
+        #     print(gtsam_solver.graph.at(0))
+        #     print('--------------------------------------')
+
+        #     print(gtsam_solver.graph.at(1))
+        #     print('--------------------------------------')
+            
+        #     print(gtsam_solver.graph.at(2))
+        #     print('--------------------------------------')
+
+        #     print(gtsam_solver.graph.at(3))
+        #     raise
+
+            # N_traj = len(saved_priors)
+            # just_before_iter_index = bisect.bisect_left(separate_indices[:,2], iter)-1
+            # if just_before_iter_index < 0:
+            #     pass
+            # elif just_before_iter_index < N_traj:
+            #     gtsam_solver.angular_prior = saved_priors[just_before_iter_index,:]
+            # else:
+            #     saved_priors[N_traj-1,:]
+            # just_before_iter_index = just_before_iter_index if just_before_iter_index < N_traj else N_traj-1
+            # gtsam_solver.angular_prior = saved_priors[just_before_iter_index,:]
 
         gtsam_solver.push_back(data)
         rst = gtsam_solver.get_result()
@@ -138,7 +175,11 @@ def seperate_traj(gid):
     return seperator
 
 def save_separate_idx(folder_name):
-    # Open the CSV file in read mode
+    '''
+    0. need to execute "run" first to get the results
+    1. compute the trajectory ranges (ind_start, ind_end, iter_start, iter_end)
+    2. save in d_separate_id.csv
+    '''
     with open(folder_name+'/d_results.csv', 'r') as csvfile:
         reader = csv.reader(csvfile)
         data = np.array(list(reader),dtype=float)
@@ -161,15 +202,12 @@ def save_separate_idx(folder_name):
         writer.writerows(save_indices)
 
 def plot_results(folder_name):
-    # Open the CSV file in read mode
     with open(folder_name+'/d_results.csv', 'r') as csvfile:
         reader = csv.reader(csvfile)
         data = np.array(list(reader),dtype=float)
-    
     with open(folder_name+'/d_sperate_id.csv', 'r', newline='') as csvfile:
         reader = csv.reader(csvfile)
         separate_indices = np.array(list(reader),dtype=int)
-
 
     saved_iter = data[:,0];saved_p = data[:,1:4];saved_v = data[:,4:7]
     saved_w = data[:,7:10]; saved_w0 = data[:,10:13]
@@ -179,20 +217,35 @@ def plot_results(folder_name):
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
 
-    for i, j in separate_indices[:,:2]:
-        ax.plot(saved_p[i:j,0], 
-                saved_p[i:j,1],
-                saved_p[i:j,2],
+    for i, j in separate_indices[:,2:4]:
+        rg = iter2idx(i,j,saved_iter)
+        ax.plot(saved_p[rg,0], 
+                saved_p[rg,1],
+                saved_p[rg,2],
                 '-', markerfacecolor='black', markersize=3)
-    ax.set_title('uses cameras 1-3')
+    ax.set_title('uses cameras 1-6')
     set_axes_equal(ax)
     draw_tennis_court(ax)
     ax.set_xlabel('x');ax.set_ylabel('y');ax.set_zlabel('z')
     plt.show()
 
+def iter2idx(i,j,saved_iter):
+        '''
+        i,j are start and end iters
+        '''
+        rg = []
+        for idx, iter in enumerate(saved_iter):
+            if i<iter and iter<j:
+                rg.append(idx)
+        return np.array(rg)
 
 def plot_spin(folder_name):
-    # Open the CSV file in read mode
+    '''
+    0. need to execute "run" and "save_separate_idx" first
+    1. plot out the figure of spin for each trajectory
+    '''
+    
+
     with open(folder_name+'/d_results.csv', 'r') as csvfile:
         reader = csv.reader(csvfile)
         data = np.array(list(reader),dtype=float)
@@ -206,18 +259,16 @@ def plot_spin(folder_name):
     saved_w = data[:,7:10]; saved_w0 = data[:,10:13]
     saved_gid = data[:,13]; saved_time = data[:,14]
     
-    
+
+        
     fig, axs = plt.subplots(4, 5, figsize=(12, 10))
     axs = axs.flatten()
-    for trj, (i, j) in enumerate(separate_indices[:,:2]):
-
-        # axs[trj].plot(np.arange(i,j),saved_w[i:j,0],'-')
-        # axs[trj].plot(np.arange(i,j),saved_w[i:j,1],'-')
-        # axs[trj].plot(np.arange(i,j),saved_w[i:j,2],'-')
- 
-        axs[trj].plot(np.arange(i,j),saved_w0[i:j,0],'--',label='x')
-        axs[trj].plot(np.arange(i,j),saved_w0[i:j,1],'--',label='y')
-        axs[trj].plot(np.arange(i,j),saved_w0[i:j,2],'--',label='z')
+    for trj, (i, j) in enumerate(separate_indices[:,2:4]):
+        rg = iter2idx(i,j,saved_iter)
+        print(rg[0],rg[-1])
+        axs[trj].plot(rg, saved_w0[rg,0],'--',label='x')
+        axs[trj].plot(rg,saved_w0[rg,1],'--',label='y')
+        axs[trj].plot(rg,saved_w0[rg,2],'--',label='z')
         axs[trj].set_title(f'traj = {trj}')
         axs[trj].legend()
     fig.savefig(f"results/{folder_name.split('/')[-1]}_spin")
@@ -231,19 +282,21 @@ def save_as_video():
     comet(saved_p[::3],saved_v[::3],saved_w[::3],predict_trajectory)
 
 if __name__ == '__main__':
-    folders = glob.glob('dataset/tennis_*')
-    for folder_name in folders:
-        print('processing ' + folder_name)
 
-        run_and_save_estimation(folder_name)
-        save_separate_idx(folder_name)
-        plot_spin(folder_name)
+    # run all folder
+    # folders = glob.glob('dataset/tennis_*')
+    # for folder_name in folders:
+    #     print('processing ' + folder_name)
+
+    #     run_and_save_estimation(folder_name)
+    #     # save_separate_idx(folder_name)
+    #     plot_spin(folder_name)
 
 
-    # folder_name = 'dataset/tennis_1'
-    # run(folder_name) # save the estimation result
+    folder_name = 'dataset/tennis_1'
+    run_and_save_estimation(folder_name) # save the estimation result
 
     # save_separate_idx(folder_name)
     # plot_results(folder_name)
-    # plot_spin(folder_name)
+    plot_spin(folder_name)
     # save_as_video()

@@ -1,5 +1,6 @@
 from pathlib import Path
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 import csv
 from torchvision.io import read_image
@@ -24,8 +25,11 @@ def read_csv(path):
     return data
 
 class CustomDataset(Dataset):
-    def __init__(self,dataset_path,seq_size= 8):
+    def __init__(self,dataset_path,max_seq_size= 100,seq_size = 20):
         
+        self.max_seq_size = 100
+        self.step = int(np.floor(max_seq_size/seq_size))
+
         self.poses = None
         self.spins = None
 
@@ -35,12 +39,28 @@ class CustomDataset(Dataset):
         p = Path(dataset_path)
         oup_paths = list(p.glob('**/d_spin_priors.csv'))
         inp_paths = list(p.glob('**/d_human_poses.csv'))
+        
+
+        # oup_paths = [p for p in oup_paths if ('3' not in str(p)) or ('4' not in str(p))] 
+        # inp_paths = [p for p in inp_paths if ('3' not in str(p)) or ('4' not in str(p))] 
 
         for pin,pout in zip(inp_paths,oup_paths):
             oup_data = read_csv(pout)
-            inp_data = read_csv(pin).reshape(len(oup_data),seq_size,26,2) # traj num, seq size, key pts, uv
+            inp_data = read_csv(pin).reshape(len(oup_data),max_seq_size,26,2) # traj num, seq size, key pts, uv
             inp_data = inp_data - inp_data[:,:,19,None,:]
             inp_data = inp_data[:,:,right_arm,:]
+
+            inp_temp = []
+            oup_temp = []
+            for inp,oup in zip(inp_data,oup_data):
+                if np.linalg.norm(oup) < 3.0:
+                    continue
+                # print(oup)
+                inp_temp.append(inp)
+                oup_temp.append(oup)
+            inp_data = np.array(inp_temp)
+            oup_data = np.array(oup_temp)
+      
 
             if self.poses is None:
                 self.poses = inp_data
@@ -51,12 +71,14 @@ class CustomDataset(Dataset):
         
         self.poses = torch.from_numpy(self.poses).float().to(device)
         self.spins = torch.from_numpy(self.spins).float().to(device)
-
+        # raise
     def __len__(self):
         return len(self.spins)
 
     def __getitem__(self, idx):
-        return self.poses[idx,:], self.spins[idx,:]
+        s = int(np.floor(np.random.rand()*5))
+        rg = list(range(s,self.max_seq_size,self.step))
+        return self.poses[idx,rg,:], self.spins[idx,:]
 
     
 
@@ -80,7 +102,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         # loss, current = loss.item(), (batch + 1) * len(X)
         # if batch  % 10 ==0:
     print(f"Traning loss: {loss:>7f}")
-
+    return loss
 
 def test_loop(dataloader, model, loss_fn):
     # Set the model to evaluation mode - important for batch normalization and dropout layers
@@ -100,28 +122,62 @@ def test_loop(dataloader, model, loss_fn):
         # print(y)
     test_loss /= num_batches
     print(f"Validation loss: {test_loss} \n")
+    return test_loss
 
 def run():
     torch.manual_seed(0)
-    dataset = CustomDataset('dataset',seq_size=100)
+    dataset = CustomDataset('dataset',max_seq_size=100,seq_size=20)
 
     training_data = Subset(dataset, [i for i in range(len(dataset)) if i % 2 == 1] )
     val_dataset = Subset(dataset, [i for i in range(len(dataset)) if i % 2 == 0] )
-    # training_data, val_dataset = random_split(dataset,[0.75,0.25])
+    # training_data, val_dataset = random_split(dataset,[0.8,0.2])
     train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
     test_dataloader = DataLoader(val_dataset, batch_size=64, shuffle=True)
 
 
     model = TCN().to(device)
     loss_fn = nn.MSELoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=5e-7,momentum=0.99,weight_decay=5e-5)
+    optimizer = torch.optim.SGD(model.parameters(), lr=1e-7,momentum=0.99,weight_decay=5e-5)
 
-    epochs = 200
+    epochs = 500
+    training_loss = []
+    testing_loss = []
+    min_loss_test = 999999
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
-        train_loop(train_dataloader, model, loss_fn, optimizer)
-        test_loop(test_dataloader, model, loss_fn)
+        loss_test  = test_loop(test_dataloader, model, loss_fn)
+        loss_train = train_loop(train_dataloader, model, loss_fn, optimizer)
+        training_loss.append(loss_train.cpu().item())
+        testing_loss.append(loss_test)
+        if loss_test < min_loss_test:
+            torch.save(model, 'trained/tcnn.pth')
+
     print("Done!")
 
+    training_rmse = np.sqrt(np.array(training_loss))/(np.pi*2)
+    testing_rmse = np.sqrt(np.array(testing_loss))/(np.pi*2)
+    
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.plot(training_rmse,'b',label = 'train')
+    ax.plot(testing_rmse,'r',label='test')
+    ax.set_title(min(testing_rmse))
+    ax.legend()
+    plt.show()
+
+def show_prediction():
+    torch.manual_seed(0)
+    dataset = CustomDataset('dataset',max_seq_size=100,seq_size=20)
+    val_dataset = Subset(dataset, [i for i in range(len(dataset)) if i % 2 == 0] )
+    model = torch.load('trained/tcnn.pth').to(device)
+    model.eval()
+    with torch.no_grad():
+        for inp,label in val_dataset:
+            pred = model(inp[None,:])
+            print('===============')
+            print(label/6.28)
+            print(pred/6.28)
+
 if __name__ == '__main__':
-   run()
+    run()
+    show_prediction()

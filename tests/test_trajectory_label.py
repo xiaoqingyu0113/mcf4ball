@@ -65,12 +65,13 @@ def run_label(folder_name):
         separate_indices = np.array(list(reader),dtype=int)
 
     spin_priors = []
+    traj_id = 0
+
     for s_index in separate_indices:
         angular_prior = np.array([0,0,0])*6.28
         error = np.inf
         start_idx, end_idx, start_iter, end_iter = s_index
         sol_count = 0
-
         while error > .5 * np.pi*2 and sol_count < 100:
             
             gtsam_solver = IsamSolver(camera_param_list,
@@ -112,20 +113,27 @@ def run_label(folder_name):
             angular_prior = saved_w0[-1]
             error = np.linalg.norm(prev_angular_prior - angular_prior)
             sol_count += 1
-            print(f"-------------\ncount = {sol_count}, error = {error}")
-            print(f"w0 beginning = {saved_w0[0]}")
+            # print(f"-------------\ntraj={traj_id}, count = {sol_count}, error = {error}")
+            # print(f"w0 beginning = {saved_w0[0]}")
             # print(f"prev_angular_prior = {prev_angular_prior}")
-            print(f"w0 end = {saved_w0[-1]}")
+            # print(f"w0 end = {saved_w0[-1]}")
 
             
         spin_priors.append(angular_prior)
-        print(spin_priors)
+        traj_id +=1
+
+        print(f'\n======trj={traj_id}==error={error}================= ')
+        print(f"w0 beginning = {saved_w0[0]}")
+        print(f"w0 end = {saved_w0[-1]}")
+        print('=============')
 
     spin_priors = np.array(spin_priors)
     with open(folder_name+'/d_spin_priors.csv', 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerows(spin_priors)
-    print('spin priors successfully written in ' + folder_name)
+    print('\nspin priors successfully written in ' + folder_name)
+    for sp in spin_priors:
+        print(sp)
 
     # save as numpy array
     # saved_p = np.array(saved_p)
@@ -165,13 +173,14 @@ def show_label(folder_name):
     ax.scatter(indices,spins[:,2],20)
     plt.show()
 if __name__ == '__main__':
+    # run all folder
     folders = glob.glob('dataset/tennis_*')
     for folder_name in folders:
         print('processing ' + folder_name)
         run_label(folder_name)
+    # run all folder
 
-
-    # folder_name = 'dataset/tennis_2'
+    # folder_name = 'dataset/tennis_1'
     # run_label(folder_name)
 
     # folder_name = 'dataset/tennis_10'

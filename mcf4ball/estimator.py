@@ -283,3 +283,7 @@ class IsamSolver:
                 self.reset()
                 return None
 
+    def set_angular_prior(self,angular_np):
+        self.angular_prior = angular_np
+        if self.graph.size()>3:
+            self.graph.replace(2,PriorFactor3(self.angular_prior_noise,W(0),self.angular_prior))
