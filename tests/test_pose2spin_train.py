@@ -23,7 +23,12 @@ def read_csv(path):
         reader = csv.reader(csvfile)
         data = np.array(list(reader),dtype=float)
     return data
-
+def print_dict(d):
+    for k,v in d.items():
+        print('==============')
+        print(k,':')
+        for kk,vv in v.items():
+            print('\t',kk,' : ',vv.shape)
 class CustomDataset(Dataset):
     def __init__(self,dataset_path,max_seq_size= 100,seq_size = 20):
         
@@ -39,28 +44,40 @@ class CustomDataset(Dataset):
         p = Path(dataset_path)
         oup_paths = list(p.glob('**/d_spin_priors.csv'))
         inp_paths = list(p.glob('**/d_human_poses.csv'))
-        
+        iter_indices = list(p.glob('**/d_sperate_id.csv'))
+    
 
+        self.dataset_dict = dict()
         # oup_paths = [p for p in oup_paths if ('3' not in str(p)) or ('4' not in str(p))] 
         # inp_paths = [p for p in inp_paths if ('3' not in str(p)) or ('4' not in str(p))] 
 
-        for pin,pout in zip(inp_paths,oup_paths):
+        for pin,pout, piter in zip(inp_paths,oup_paths,iter_indices):
+            folder_name = str(pin).split('/')[1]
             oup_data = read_csv(pout)
             inp_data = read_csv(pin).reshape(len(oup_data),max_seq_size,26,2) # traj num, seq size, key pts, uv
+            iters = read_csv(piter)[:,2:4]
+            # print(len(oup_data))
+            # print(len(oup_data))
+            # print(len(iters))
             inp_data = inp_data - inp_data[:,:,19,None,:]
             inp_data = inp_data[:,:,right_arm,:]
 
             inp_temp = []
             oup_temp = []
-            for inp,oup in zip(inp_data,oup_data):
+            iters_temp = []
+            for inp,oup,iter in zip(inp_data,oup_data,iters):
                 if np.linalg.norm(oup) < 3.0:
                     continue
-                # print(oup)
                 inp_temp.append(inp)
                 oup_temp.append(oup)
+                iters_temp.append(iter)
             inp_data = np.array(inp_temp)
             oup_data = np.array(oup_temp)
-      
+            iters = np.array(iters_temp)
+            
+            self.dataset_dict[folder_name] = {'iters':iters,
+                                        'poses':inp_data,
+                                        'labels':oup_data} 
 
             if self.poses is None:
                 self.poses = inp_data
@@ -71,7 +88,8 @@ class CustomDataset(Dataset):
         
         self.poses = torch.from_numpy(self.poses).float().to(device)
         self.spins = torch.from_numpy(self.spins).float().to(device)
-        # raise
+        print_dict(self.dataset_dict)
+
     def __len__(self):
         return len(self.spins)
 
@@ -174,10 +192,10 @@ def show_prediction():
     with torch.no_grad():
         for inp,label in val_dataset:
             pred = model(inp[None,:])
-            print('===============')
-            print(label/6.28)
-            print(pred/6.28)
+            print('=========================================================')
+            print('label \t\t=\t',label/6.28)
+            print('prediction \t=\t', pred/6.28)
 
 if __name__ == '__main__':
-    run()
+    # run()
     show_prediction()
