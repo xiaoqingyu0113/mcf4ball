@@ -13,7 +13,7 @@ class IsamSolver:
                     exy=1.0, 
                     graph_minimum_size=150,
                     ground_z0=0.100,
-                    angular_prior = np.zeros(3),
+                    angular_prior = None,
                     verbose = True):
 
         self.camera_param_list = camera_param_list
@@ -27,7 +27,7 @@ class IsamSolver:
         self.verbose = verbose
 
         self.bp_error = 50
-        self.cam_mix_ratio = 0.3
+        self.cam_mix_ratio = 0.1
         self.uv_noise = gtsam.noiseModel.Isotropic.Sigma(2, 2.0)  # 2 pixels error
         self.camera_calibration_noise = gtsam.noiseModel.Diagonal.Sigmas(np.ones(6)*1e-6) 
         self.pos_noise = gtsam.noiseModel.Diagonal.Sigmas(np.ones(3)*1e-3)
@@ -65,6 +65,7 @@ class IsamSolver:
         self.opt_buffer = deque()
         self.optimizable = False
         self.end_optim = False
+        self.end_optim_count = 0
 
         if self.verbose:
             print('reset!!!!!!!!!!!')
@@ -95,10 +96,14 @@ class IsamSolver:
             camera_param = self.camera_param_list[camera_id]
             uv1 = camera_param.proj2img(rst[0]) 
             error = np.sqrt((uv1[0] - u)**2 + (uv1[1]-v)**2)
+
             if error > self.bp_error:
-                # print(f'bp error too large ({error})! reset!')
-                self.end_optim = True
-                
+                self.end_optim_count += 1
+                if self.end_optim_count > 1:
+                    self.end_optim = True
+            else:
+                self.end_optim_count=0
+
             if self.verbose:
                 print(f"\t- check end optim: input:({int(u)},{int(v)}), backproj: ({int(uv1[0])},{int(uv1[1])})")
                 print(f"\t- the error is {error:.2f}")
@@ -190,7 +195,7 @@ class IsamSolver:
         if self.verbose:
             print(f"add pixel detection X({j}) -> L({j})")
             print(f"add prior X({j})")
-        if j == 0:
+        if j == 0 and self.angular_prior is not None:
             self.graph.push_back(PriorFactor3(self.angular_prior_noise,W(0),self.angular_prior))
         if j >0:
             self.graph.push_back(PositionFactor(self.pos_noise,L(j-1),L(j),V(j-1),self.t_max,t))
@@ -275,7 +280,7 @@ class IsamSolver:
 
             if len(self.prev_L) < 10:
                 return None
-            elif len(self.prev_L) >= 10 and np.linalg.norm(prev_l - l) < 1.0: # some filtering
+            elif len(self.prev_L) >= 10 and np.linalg.norm(prev_l - l) < 4.0: # some filtering
                 return l,v,w
             else:
                 if self.verbose:

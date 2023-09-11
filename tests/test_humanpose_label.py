@@ -61,7 +61,7 @@ def run_and_show_in_image(folder_name, seq_size=8,skip_iter=10 ):
     iters = get_image_iters(folder_name)
     
     
-    with open(Path(f'dataset/{folder_name}/d_sperate_id.csv'),'r', newline='') as csvfile:
+    with open(Path(f'dataset/{folder_name}/d_separate_ind.csv'),'r', newline='') as csvfile:
         reader = csv.reader(csvfile)
         separate_indices = np.array(list(reader),dtype=int)
     
@@ -83,10 +83,11 @@ def run_and_save(folder_name,seq_size = 24, skip_iter = 3):
     iters = get_image_iters(folder_name)
     
     
-    with open(Path(f'dataset/{folder_name}/d_sperate_id.csv'),'r', newline='') as csvfile:
+    with open(Path(f'dataset/{folder_name}/d_separate_ind.csv'),'r', newline='') as csvfile:
         reader = csv.reader(csvfile)
         separate_indices = np.array(list(reader),dtype=int)
-    
+    if len(separate_indices) == 0:
+        return
     saved_poses = []
     offset = 0
     for separate_ind in separate_indices:
@@ -119,9 +120,11 @@ def run_and_save(folder_name,seq_size = 24, skip_iter = 3):
     print(f'total trajectories = {len(separate_indices)}')
 
 def show_detections(folder_name,seq_size = 24):
-    with open(Path(f'dataset/{folder_name}/d_sperate_id.csv'),'r', newline='') as csvfile:
+    with open(Path(f'dataset/{folder_name}/d_separate_ind.csv'),'r', newline='') as csvfile:
         reader = csv.reader(csvfile)
         separate_indices = np.array(list(reader),dtype=int)
+    if len(separate_indices) ==0:
+        return
     with open(Path(f'dataset/{folder_name}/d_human_poses.csv'),'r', newline='') as csvfile:
         reader = csv.reader(csvfile)
         human_poses = np.array(list(reader),dtype=float)
@@ -131,6 +134,7 @@ def show_detections(folder_name,seq_size = 24):
 
     N = len(separate_indices)
     
+ 
     human_poses = human_poses.reshape(N,seq_size,26,2) # traj num, seq size, key pts, uv
     human_poses = human_poses - human_poses[:,:,19,None,:] # centerize
 
@@ -147,7 +151,7 @@ def show_detections(folder_name,seq_size = 24):
             ax.text(40,0,",".join(["{:.1f}".format(s) for s in spins[traj_idx]]))
             # draw stroke
             for st_idx in range(1,seq_size):
-                ax.plot(human_poses[traj_idx,[st_idx-1, st_idx],10,0],human_poses[traj_idx,[st_idx-1,st_idx],10,1],color = 'purple', linewidth=4, alpha=1.0*st_idx/(seq_size-1))
+                ax.plot(human_poses[traj_idx,[st_idx-1, st_idx],10,0],human_poses[traj_idx,[st_idx-1,st_idx],10,1],color = 'purple', linewidth=4, alpha=1.0*(st_idx/(seq_size-1))**2)
 
             ax.text(0.5, -0.1, str(traj_idx), ha='center', va='center', transform=ax.transAxes)
 
@@ -160,10 +164,11 @@ def show_detections(folder_name,seq_size = 24):
 
 if __name__ == '__main__':
     
-    for i in range(1,11):
-    # i=10
+    for i in range(1,20):
+        if i in [13,15]:
+            continue
         folder_name = 'tennis_' + str(i)
         seq_size = 100
         skip_iter = 1
-        run_and_save(folder_name,seq_size=seq_size,skip_iter=skip_iter)
+        # run_and_save(folder_name,seq_size=seq_size,skip_iter=skip_iter)
         show_detections(folder_name,seq_size=seq_size)

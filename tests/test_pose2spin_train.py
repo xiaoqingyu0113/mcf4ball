@@ -44,21 +44,33 @@ class CustomDataset(Dataset):
         p = Path(dataset_path)
         oup_paths = list(p.glob('**/d_spin_priors.csv'))
         inp_paths = list(p.glob('**/d_human_poses.csv'))
-        iter_indices = list(p.glob('**/d_sperate_id.csv'))
-    
+        iter_indices = list(p.glob('**/d_separate_ind.csv'))
+
+        # print(oup_paths)
+        # print(inp_paths)
+        # print(iter_indices)
 
         self.dataset_dict = dict()
         # oup_paths = [p for p in oup_paths if ('3' not in str(p)) or ('4' not in str(p))] 
         # inp_paths = [p for p in inp_paths if ('3' not in str(p)) or ('4' not in str(p))] 
 
         for pin,pout, piter in zip(inp_paths,oup_paths,iter_indices):
+            # print(piter)
+            # print(pin)
+            # print(pout)
             folder_name = str(pin).split('/')[1]
             oup_data = read_csv(pout)
-            inp_data = read_csv(pin).reshape(len(oup_data),max_seq_size,26,2) # traj num, seq size, key pts, uv
-            iters = read_csv(piter)[:,2:4]
-            # print(len(oup_data))
-            # print(len(oup_data))
-            # print(len(iters))
+            if len(oup_data)==0:
+                print('continue')
+                continue
+            inp_data = read_csv(pin)
+            iters = read_csv(piter)
+            
+            # print(oup_data.shape)
+            # print(oup_data.shape)
+            # print(iters.shape)
+            inp_data = inp_data.reshape(len(oup_data),max_seq_size,26,2) # traj num, seq size, key pts, uv
+            iters = iters[:,2:4]
             inp_data = inp_data - inp_data[:,:,19,None,:]
             inp_data = inp_data[:,:,right_arm,:]
 
@@ -66,7 +78,7 @@ class CustomDataset(Dataset):
             oup_temp = []
             iters_temp = []
             for inp,oup,iter in zip(inp_data,oup_data,iters):
-                if np.linalg.norm(oup) < 3.0:
+                if np.linalg.norm(oup) < 3.0: # filter out small spins
                     continue
                 inp_temp.append(inp)
                 oup_temp.append(oup)
@@ -86,9 +98,9 @@ class CustomDataset(Dataset):
                 self.poses = np.concatenate((self.poses,inp_data),axis=0)
                 self.spins = np.concatenate((self.spins,oup_data),axis=0)
         
-        self.poses = torch.from_numpy(self.poses).float().to(device)
+        # self.poses = torch.from_numpy(self.poses).float().to(device)
         self.spins = torch.from_numpy(self.spins).float().to(device)
-        print_dict(self.dataset_dict)
+        # print_dict(self.dataset_dict)
 
     def __len__(self):
         return len(self.spins)

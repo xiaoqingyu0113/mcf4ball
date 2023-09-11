@@ -112,9 +112,9 @@ def draw_tennis_court(ax,z0 = 0.0):
 
     for k,v in rects.items():
         if k == 'net':
-            draw_rectangle(ax,v[0]*m_per_ft,v[1]*m_per_ft,facecolor='black',edgecolor='black',alpha=0.99)
+            draw_rectangle(ax,v[0]*m_per_ft,v[1]*m_per_ft,facecolor='black',edgecolor='black',alpha=0.5)
         else:
-            draw_rectangle(ax,v[0]*m_per_ft,v[1]*m_per_ft,facecolor='green',alpha=0.2)
+            draw_rectangle(ax,v[0]*m_per_ft,v[1]*m_per_ft,facecolor='green',alpha=0.3)
 
 def comet(saved_p, saved_v, saved_w,predict_trajectory):
     fig = plt.figure()

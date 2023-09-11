@@ -80,7 +80,10 @@ def computer_trajectory(data_array,camera_param_list,graph_minimum_size,angular_
                               exy = param.exy,
                                ground_z0=param.ground_z0,
                               angular_prior = angular_prior)
-    saved_p = [];saved_v = [];saved_w = [];saved_w0 = [];saved_iter = []; saved_gid = [];saved_time = []
+    saved_p = [];saved_v = [];saved_w = [];saved_w0 = [];saved_iter = []; saved_gid = [];saved_time = []; saved_landing_seq=[]
+
+    localize_ind = 0
+    num_w = 0
     for d in data_array:
         iter = int(d[0])
         if s<iter and iter<e:
@@ -93,17 +96,28 @@ def computer_trajectory(data_array,camera_param_list,graph_minimum_size,angular_
                 saved_w.append(w_rst)
                 saved_v.append(v_rst)
                 saved_iter.append(iter)
+                
+                if num_w == 0 and gtsam_solver.num_w ==1:
+                    saved_landing_seq.append(localize_ind)
+                if num_w ==1 and gtsam_solver.num_w ==2:
+                    saved_landing_seq.append(localize_ind)
+                num_w = gtsam_solver.num_w
+                localize_ind += 1
+
     saved_p = np.array(saved_p)
     saved_v = np.array(saved_v)
     saved_w = np.array(saved_w)
     saved_iter = np.array(saved_iter)[:,None]
-    return saved_p, saved_v, saved_w, saved_iter
+    return saved_p, saved_v, saved_w, saved_iter,saved_landing_seq
 
 def compute_landing_prediction_error_over_time(saved_p,saved_v,saved_w,landing_positions, landing_seq):
-    N1 = landing_seq[0][0]
-    N2 = landing_seq[1][0]
-    t1 = np.linspace(0.0,1.0, N1) # normalzie the time into the scale (0,1)
-    t2 = np.linspace(0,1,N2)
+    N_landing_points = len(landing_seq)
+    N1 = landing_seq[0]
+    if N_landing_points == 2:
+        N2 = landing_seq[1]
+    else:
+        N2 = 0
+
     error1_spin = []
     error2_spin = []
     error1_nospin = []
@@ -128,12 +142,14 @@ def compute_landing_prediction_error_over_time(saved_p,saved_v,saved_w,landing_p
             landing_pred_spin,_ = find_landing_position_from_prediction(xN_spin[:,:3])
 
             error1_spin.append(np.linalg.norm(landing_pred_spin[0,:2]-landing_positions[0,:2]))
-            error2_spin.append(np.linalg.norm(landing_pred_spin[1,:2]-landing_positions[1,:2]))
+            if N_landing_points==2:
+                error2_spin.append(np.linalg.norm(landing_pred_spin[1,:2]-landing_positions[1,:2]))
             
             error1_nospin.append(np.linalg.norm(landing_pred_nospin[0,:2]-landing_positions[0,:2]))
-            error2_nospin.append(np.linalg.norm(landing_pred_nospin[1,:2]-landing_positions[1,:2]))
+            if N_landing_points==2:
+                error2_nospin.append(np.linalg.norm(landing_pred_nospin[1,:2]-landing_positions[1,:2]))
 
-        elif max(landing_seq[0])<i and  i<N2:
+        elif N1<i and  i<N2:
             _,xN_nospin = predict_trajectory(p0,v0,np.zeros(3),
                                                 total_time=8.0,
                                                 z0=param.ground_z0,
@@ -167,12 +183,12 @@ def run_prediction():
 
     dataset_dict = dataset.dataset_dict
 
-    folder_name = 'tennis_12'
+    folder_name = 'tennis_14'
     # human_poses = dataset_dict[folder_name]['poses']
     iters = dataset_dict[folder_name]['iters']
     labels = dataset_dict[folder_name]['labels']
 
-    i = 0
+    i =1
     # hp = torch.from_numpy(human_poses[i]).float().to(device)[list(range(0,100,5))]
     s,e = iters[i]
 
@@ -181,14 +197,15 @@ def run_prediction():
     # angular_prior = angular_prior.to('cpu').numpy()[0]
     angular_prior = labels[i]
     data_array = load_detections('dataset/'+folder_name)
-    saved_p, saved_v, saved_w, saved_iter = computer_trajectory(data_array,camera_param_list,graph_minimum_size,angular_prior,s,e)
+    saved_p, saved_v, saved_w, saved_iter,saved_landing_seq = computer_trajectory(data_array,camera_param_list,graph_minimum_size,angular_prior,s,e)
 
  
-    # plot_trajectory(saved_p)
+    # plot_trajectory(saved_p,saved_p[saved_landing_seq,:])
     # raise
-    landing_positions,landing_seq = find_landing_position(saved_p[:-2])
+    # landing_positions,landing_seq = find_landing_position(saved_p[:-2])
+
     
-    error1_spin, error2_spin, error1_nospin,error2_nospin = compute_landing_prediction_error_over_time(saved_p,saved_v,saved_w,landing_positions, landing_seq)
+    error1_spin, error2_spin, error1_nospin,error2_nospin = compute_landing_prediction_error_over_time(saved_p,saved_v,saved_w,saved_p[saved_landing_seq,:], saved_landing_seq)
 
     plt.plot(error1_nospin[4:],'--',label='landing 1, nospin')
     plt.plot(error2_nospin[4:],'--',label='landing 2, nospin')
@@ -200,11 +217,11 @@ def run_prediction():
     plt.grid(True, which='minor', linestyle=':', linewidth=0.2, color='gray')
     plt.xlabel('# of detection from camera')
     plt.ylabel('RMSE (m)')
-    plt.ylim([0,3])
+    # plt.ylim([0,3])
     plt.legend()
     plt.show()
 
-def plot_trajectory(saved_p):
+def plot_trajectory(saved_p,landing_positions):
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
 
@@ -212,8 +229,8 @@ def plot_trajectory(saved_p):
             saved_p[:,1],
             saved_p[:,2],
             '-', markerfacecolor='black', markersize=3)
-    landing_positions,landing_seq = find_landing_position(saved_p[:-2])
-    print(landing_positions)
+    # landing_positions,landing_seq = find_landing_position(saved_p[:-2])
+    # print(landing_positions)
     ax.scatter(landing_positions[:,0],
                landing_positions[:,1],
                landing_positions[:,2],
