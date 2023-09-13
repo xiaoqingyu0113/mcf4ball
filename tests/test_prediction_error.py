@@ -77,6 +77,8 @@ def computer_trajectory(data_array,camera_param_list,graph_minimum_size,angular_
                               verbose = False,
                               graph_minimum_size = graph_minimum_size,
                               ez = param.ez,
+                              Le = param.Le,
+                                Cd=param.Cd,
                               exy = param.exy,
                                ground_z0=param.ground_z0,
                               angular_prior = angular_prior)
@@ -101,6 +103,7 @@ def computer_trajectory(data_array,camera_param_list,graph_minimum_size,angular_
                     saved_landing_seq.append(localize_ind)
                 if num_w ==1 and gtsam_solver.num_w ==2:
                     saved_landing_seq.append(localize_ind)
+                    break
                 num_w = gtsam_solver.num_w
                 localize_ind += 1
 
@@ -129,13 +132,17 @@ def compute_landing_prediction_error_over_time(saved_p,saved_v,saved_w,landing_p
                                                 total_time=8.0,
                                                 z0=param.ground_z0,
                                                 ez=param.ez,
+                                                Le = param.Le,
                                                 exy=param.exy,
+                                                Cd=param.Cd,
                                                 verbose=False)
             _,xN_spin = predict_trajectory(p0,v0,w0,
                                             total_time=8.0,
                                             z0=param.ground_z0,
-                                            ez=param.ez,
-                                            exy=param.exy,
+                                                ez=param.ez,
+                                                Le = param.Le,
+                                                exy=param.exy,
+                                                Cd=param.Cd,
                                             verbose=False)
             
             landing_pred_nospin,_ = find_landing_position_from_prediction(xN_nospin[:,:3])
@@ -154,13 +161,17 @@ def compute_landing_prediction_error_over_time(saved_p,saved_v,saved_w,landing_p
                                                 total_time=8.0,
                                                 z0=param.ground_z0,
                                                 ez=param.ez,
+                                                Le = param.Le,
                                                 exy=param.exy,
+                                                Cd=param.Cd,
                                                 verbose=False)
             _,xN_spin = predict_trajectory(p0,v0,w0,
                                                 total_time=8.0,
                                                 z0=param.ground_z0,
                                                 ez=param.ez,
+                                                Le = param.Le,
                                                 exy=param.exy,
+                                                Cd=param.Cd,
                                                 verbose=False)
             
             landing_pred_nospin,_ = find_landing_position_from_prediction(xN_nospin[:,:3])
@@ -172,7 +183,7 @@ def compute_landing_prediction_error_over_time(saved_p,saved_v,saved_w,landing_p
         i += 1
     return error1_spin, error2_spin, error1_nospin,error2_nospin
 
-def run_prediction():
+def run_prediction(folder_name_only,i):
     dataset = CustomDataset('dataset', max_seq_size = 100, seq_size = 20)
     camera_names = ['22495525','22495526','22495527','23045007','23045008','23045009']
     raw_params = [read_yaml('camera_calibration_data/'+cname+'_calibration.yaml') for cname in camera_names]
@@ -183,28 +194,26 @@ def run_prediction():
 
     dataset_dict = dataset.dataset_dict
 
-    folder_name = 'tennis_14'
+    # folder_name = 'tennis_14'
     # human_poses = dataset_dict[folder_name]['poses']
-    iters = dataset_dict[folder_name]['iters']
-    labels = dataset_dict[folder_name]['labels']
+    iters = dataset_dict[folder_name_only]['iters']
+    labels = dataset_dict[folder_name_only]['labels']
 
-    i =1
+    # i =1
     # hp = torch.from_numpy(human_poses[i]).float().to(device)[list(range(0,100,5))]
     s,e = iters[i]
 
+    print(f'computing {folder_name_only} ({i}/{len(iters)})')
     # with torch.no_grad():
     #     angular_prior = model(hp[None,:])
     # angular_prior = angular_prior.to('cpu').numpy()[0]
     angular_prior = labels[i]
-    data_array = load_detections('dataset/'+folder_name)
+    data_array = load_detections('dataset/'+folder_name_only)
     saved_p, saved_v, saved_w, saved_iter,saved_landing_seq = computer_trajectory(data_array,camera_param_list,graph_minimum_size,angular_prior,s,e)
 
- 
     # plot_trajectory(saved_p,saved_p[saved_landing_seq,:])
     # raise
-    # landing_positions,landing_seq = find_landing_position(saved_p[:-2])
 
-    
     error1_spin, error2_spin, error1_nospin,error2_nospin = compute_landing_prediction_error_over_time(saved_p,saved_v,saved_w,saved_p[saved_landing_seq,:], saved_landing_seq)
 
     plt.plot(error1_nospin[4:],'--',label='landing 1, nospin')
@@ -217,6 +226,7 @@ def run_prediction():
     plt.grid(True, which='minor', linestyle=':', linewidth=0.2, color='gray')
     plt.xlabel('# of detection from camera')
     plt.ylabel('RMSE (m)')
+    plt.title(f'{angular_prior}')
     # plt.ylim([0,3])
     plt.legend()
     plt.show()
@@ -228,7 +238,7 @@ def plot_trajectory(saved_p,landing_positions):
     ax.plot(saved_p[:,0], 
             saved_p[:,1],
             saved_p[:,2],
-            '-', markerfacecolor='black', markersize=3)
+            '.', markerfacecolor='black', markersize=3)
     # landing_positions,landing_seq = find_landing_position(saved_p[:-2])
     # print(landing_positions)
     ax.scatter(landing_positions[:,0],
@@ -245,4 +255,6 @@ def plot_trajectory(saved_p,landing_positions):
     plt.show()
 
 if __name__ == '__main__':
-    run_prediction()
+    folder_name_only = 'tennis_12'
+    i = 5
+    run_prediction(folder_name_only,i)

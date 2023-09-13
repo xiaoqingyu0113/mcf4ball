@@ -66,7 +66,7 @@ class CustomDataset(Dataset):
             inp_data = read_csv(pin)
             iters = read_csv(piter)
             
-            # print(oup_data.shape)
+            # print(inp_data.shape)
             # print(oup_data.shape)
             # print(iters.shape)
             inp_data = inp_data.reshape(len(oup_data),max_seq_size,26,2) # traj num, seq size, key pts, uv
@@ -78,7 +78,7 @@ class CustomDataset(Dataset):
             oup_temp = []
             iters_temp = []
             for inp,oup,iter in zip(inp_data,oup_data,iters):
-                if np.linalg.norm(oup) < 3.0: # filter out small spins
+                if np.linalg.norm(oup) < 0.0: # filter out small spins
                     continue
                 inp_temp.append(inp)
                 oup_temp.append(oup)

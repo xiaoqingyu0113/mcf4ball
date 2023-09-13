@@ -5,7 +5,9 @@ import matplotlib.animation as animation
 import glob
 from test_helper import result_parser, load_detections
 
-
+'''
+plot detection of each image, and save as mp4
+'''
 def check_yolo_in_all_camera(folder_name):
 
 
@@ -46,5 +48,5 @@ if __name__ == '__main__':
     #     print('processing ' + folder_name)
     #     check_yolo_in_all_camera(folder_name)
 
-    folder_name = 'dataset/tennis_13'
+    folder_name = 'dataset/tennis_12'
     check_yolo_in_all_camera(folder_name)

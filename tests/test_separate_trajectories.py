@@ -47,9 +47,10 @@ def run_separate():
 
 
 if __name__ == '__main__':
-    run_separate()
-    # save_separate_idx('dataset/tennis_1')
-    # plot_separated_results('dataset/tennis_1',save_fig=False)
+    # run_separate()
+    folder_name = 'dataset/tennis_2'
+    save_separate_idx(folder_name)
+    plot_separated_results(folder_name,save_fig=False)
     # plot_whole_results('dataset/tennis_13')
     
 

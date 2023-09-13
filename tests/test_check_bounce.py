@@ -87,9 +87,6 @@ def show_results():
 
         p = v2x - 0.6448 *v1x
         q = w1y
-
-        # print(int(str(file_path).split('/')[-2].split('_')[-1]))
-
    
         if int(str(file_path).split('/')[-2].split('_')[-1])>10:
             pm.append(p); qm.append(q)

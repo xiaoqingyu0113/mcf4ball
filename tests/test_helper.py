@@ -85,12 +85,12 @@ def plot_separated_results(folder_name,save_fig=True):
     ax.set_title('uses cameras 1-6')
     set_axes_equal(ax)
     draw_tennis_court(ax)
-    ax.set_xlabel('x');ax.set_ylabel('y');ax.set_zlabel('z')
-    
+    ax.set_xlabel('x (m)',fontsize=12);ax.set_ylabel('y (m)',fontsize=12);ax.set_zlabel('z (m)',fontsize=12)
+    ax.grid(False)
     ax.xaxis.pane.fill = False
     ax.yaxis.pane.fill = False
     ax.zaxis.pane.fill = False
-
+    ax.tick_params(axis='both', labelsize=12)
     # Set pane colors to white (this will remove the gray background)
     ax.xaxis.pane.set_edgecolor('w')
     ax.yaxis.pane.set_edgecolor('w')

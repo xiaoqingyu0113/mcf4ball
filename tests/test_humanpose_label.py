@@ -170,5 +170,8 @@ if __name__ == '__main__':
         folder_name = 'tennis_' + str(i)
         seq_size = 100
         skip_iter = 1
-        # run_and_save(folder_name,seq_size=seq_size,skip_iter=skip_iter)
+        run_and_save(folder_name,seq_size=seq_size,skip_iter=skip_iter)
         show_detections(folder_name,seq_size=seq_size)
+
+    
+    # run_and_save('tennis_16',seq_size=100,skip_iter=1)

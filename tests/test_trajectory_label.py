@@ -33,17 +33,17 @@ def run_localization_for_one_trajectory(detections,gtsam_solver,ds,de,return_all
                 if num_w == 0 and gtsam_solver.num_w ==1:
                     w0 = gtsam_solver.current_estimate.atVector(W(0))
                     count_landing1 += 1
-                if 0<count_landing1 < 20:
+                if 0<count_landing1 < 1:
                     w0 = gtsam_solver.current_estimate.atVector(W(0))
                     count_landing1 += 1
                 if num_w ==1 and gtsam_solver.num_w ==2:
                     w0 =  gtsam_solver.current_estimate.atVector(W(0))
                     count_landing2 += 1 
                     count_landing1 = 0
-                if (0<count_landing2<20) and num_w ==2 and gtsam_solver.num_w ==2:
+                if (0<count_landing2<2) and num_w ==2 and gtsam_solver.num_w ==2:
                     w0 =  gtsam_solver.current_estimate.atVector(W(0))
                     count_landing2 += 1 
-
+                    break
                 num_w = gtsam_solver.num_w
         return w0
     else:
@@ -85,6 +85,8 @@ def run_label(folder_name):
                                     graph_minimum_size = graph_minimum_size,
                                     ez = param.ez,
                                     exy = param.exy,
+                                    Le = param.Le,
+                                    Cd = param.Cd,
                                     ground_z0=param.ground_z0,
                                     angular_prior = np.zeros(3))
     spin_priors = []
@@ -98,7 +100,7 @@ def run_label(folder_name):
         rs, re, its, ite,ds,de = s_index
         
         sol_count = 0
-        while error > .5 * np.pi*2 and sol_count < 100:
+        while (sol_count<1) or (error > 1.0 and sol_count < 200):
             gtsam_solver.reset()
             gtsam_solver.set_angular_prior(angular_prior)
             angular_prior = run_localization_for_one_trajectory(detections,gtsam_solver,ds,de)
@@ -132,6 +134,8 @@ def plot_traj_and_spin(folder_name, traj_ind):
                                     graph_minimum_size = graph_minimum_size,
                                     ez = param.ez,
                                     exy = param.exy,
+                                    Le = param.Le,
+                                    Cd = param.Cd,
                                     ground_z0=param.ground_z0,
                                     angular_prior = spin_pirors[traj_ind])
     
@@ -155,12 +159,12 @@ def plot_traj_and_spin(folder_name, traj_ind):
     plt.show()
 if __name__ == '__main__':
     # run all folder
-    folders = glob.glob('dataset/tennis_*')
-    for folder_name in folders:
-        print('processing ' + folder_name)
-        run_label(folder_name)
+    # folders = glob.glob('dataset/tennis_*')
+    # for folder_name in folders:
+    #     print('processing ' + folder_name)
+    #     run_label(folder_name)
     
-    # folder_name = 'dataset/tennis_6'
-    # run_label(folder_name)
+    folder_name = 'dataset/tennis_12'
+    run_label(folder_name)
 
     # plot_traj_and_spin('dataset/tennis_19',0)

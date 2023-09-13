@@ -71,6 +71,6 @@ if __name__ == '__main__':
     #     run_and_save_estimation(folder_name)
 
 
-    folder_name = 'dataset/tennis_1'
+    folder_name = 'dataset/tennis_2'
     run_and_save_estimation(folder_name) # save the estimation result
 
