@@ -36,6 +36,7 @@ class TCN(nn.Module):
         self.fc2 = nn.Linear(256, 64)
         self.fc3 = nn.Linear(64,3)
         self.fc4 = nn.Linear(3,3)
+
     def forward(self,x):
         # Reshape data for 1D convolution
         x = x.permute(0, 2, 1, 3).contiguous().view(x.size(0), -1, x.size(1))
@@ -78,20 +79,57 @@ class TCN(nn.Module):
     #     x = self.fc2(x)
         
     #     return x
+
+class TemporalConvNet(nn.Module):
+    def __init__(self, num_inputs, num_channels, kernel_size=2, dropout=0.2):
+        super(TemporalConvNet, self).__init__()
+        layers = []
+        num_levels = len(num_channels)
+        for i in range(num_levels):
+            dilation_size = 2 ** i
+            in_channels = num_inputs if i == 0 else num_channels[i-1]
+            out_channels = num_channels[i]
+            layers += [nn.Conv1d(in_channels, out_channels, kernel_size,
+                                 stride=1, dilation=dilation_size,
+                                 padding=(kernel_size-1) * dilation_size),
+                       nn.ReLU(),
+                       nn.Dropout(dropout)]
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.network(x)
     
+class MyTCN(nn.Module):
+    def __init__(self, input_size, output_size, num_channels, kernel_size=3, dropout=0.2):
+        super(MyTCN, self).__init__()
+        self.tcn = TemporalConvNet(input_size, num_channels, kernel_size=kernel_size, dropout=dropout)
+        self.linear = nn.Linear(num_channels[-1], output_size)
+
+    def forward(self, x):
+        x = x.permute(0, 2, 1, 3).contiguous().view(x.size(0), -1, x.size(1))
+        y1 = self.tcn(x)
+        return self.linear(y1[:, :, -1])
+
 class FC(nn.Module):
     def __init__(self):
         super(FC, self).__init__()
         
-        self.fc1 = nn.Linear(120, 5012)
-        self.fc2 = nn.Linear(5012, 1024)
-        self.fc3 = nn.Linear(1024, 128)
-        self.fc4 = nn.Linear(128, 3)
-
+        # Fully
+        self.fc1 = nn.Linear(600,128)
+        self.fc2 = nn.Linear(128,128)
+        self.fc3 = nn.Linear(128,3)
+        self.relu = nn.Relu()
+        self.dropout = nn.Dropout(0.3)
     def forward(self,x):
+        # Reshape data for 1D convolution
+        # x = x.permute(0, 2, 1, 3).contiguous().view(x.size(0), -1, x.size(1))
         x = x.view(x.size(0), -1)
-        x = self.fc1(x)
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+
         x = self.fc2(x)
+        # x = self.dropout(x)
         x = self.fc3(x)
-        x = self.fc4(x)
         return x
+    
+

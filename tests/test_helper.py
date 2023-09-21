@@ -69,7 +69,7 @@ def result_parser(file_name):
     print('the dimension fo the result is ',data.shape)
     return saved_p,saved_v,saved_w,saved_w0,saved_iter,saved_gid,saved_time,saved_detection_id
 
-def plot_separated_results(folder_name,save_fig=True):
+def plot_separated_results(folder_name,save_fig=True, traj=None):
     saved_p,saved_v,saved_w,saved_w0,saved_iter,saved_gid,saved_time,saved_detection_id = result_parser(folder_name+'/d_results.csv')
     separate_ind = read_csv(folder_name+'/d_separate_ind.csv').astype(int)
     result_ind = separate_ind[:,:2]
@@ -77,11 +77,20 @@ def plot_separated_results(folder_name,save_fig=True):
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
 
-    for i, j in result_ind:
+    if traj is not None:
+        i,j = result_ind[traj]
+        j = j -100
         ax.plot(saved_p[np.arange(i,j),0], 
                 saved_p[np.arange(i,j),1],
                 saved_p[np.arange(i,j),2],
                 '-', markerfacecolor='black', markersize=3)
+    else:
+        for i, j in result_ind:
+            # j = j-10
+            ax.plot(saved_p[np.arange(i,j),0], 
+                    saved_p[np.arange(i,j),1],
+                    saved_p[np.arange(i,j),2],
+                    '-', markerfacecolor='black', markersize=3)
     ax.set_title('uses cameras 1-6')
     set_axes_equal(ax)
     draw_tennis_court(ax)

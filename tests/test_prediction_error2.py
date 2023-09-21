@@ -261,6 +261,6 @@ def plot_trajectory(saved_p,landing_positions):
     plt.show()
 
 if __name__ == '__main__':
-    folder_name_only = 'tennis_12'
-    i = 5
+    folder_name_only = 'tennis_16'
+    i = 3
     run_prediction(folder_name_only,i)

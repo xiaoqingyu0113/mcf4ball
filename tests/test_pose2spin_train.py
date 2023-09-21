@@ -33,7 +33,7 @@ class CustomDataset(Dataset):
     def __init__(self,dataset_path,max_seq_size= 100,seq_size = 20):
         
         self.max_seq_size = 100
-        self.step = int(np.floor(max_seq_size/seq_size))
+        self.step = max_seq_size//seq_size
 
         self.poses = None
         self.spins = None
@@ -51,13 +51,14 @@ class CustomDataset(Dataset):
         # print(iter_indices)
 
         self.dataset_dict = dict()
-        # oup_paths = [p for p in oup_paths if ('3' not in str(p)) or ('4' not in str(p))] 
-        # inp_paths = [p for p in inp_paths if ('3' not in str(p)) or ('4' not in str(p))] 
-
+        oup_paths = [p for p in oup_paths if int(str(p).split('/')[-2].split('_')[-1]) not in [13,15]] 
+        inp_paths = [p for p in inp_paths if int(str(p).split('/')[-2].split('_')[-1]) not in [13,15] ]
         for pin,pout, piter in zip(inp_paths,oup_paths,iter_indices):
-            # print(piter)
+            piter = str(pout).replace('d_spin_priors','d_separate_ind')
             # print(pin)
             # print(pout)
+            # print(piter)
+
             folder_name = str(pin).split('/')[1]
             oup_data = read_csv(pout)
             if len(oup_data)==0:
@@ -78,7 +79,7 @@ class CustomDataset(Dataset):
             oup_temp = []
             iters_temp = []
             for inp,oup,iter in zip(inp_data,oup_data,iters):
-                if np.linalg.norm(oup) < 0.0: # filter out small spins
+                if np.linalg.norm(oup) < 8.0: # filter out small spins
                     continue
                 inp_temp.append(inp)
                 oup_temp.append(oup)
@@ -98,15 +99,18 @@ class CustomDataset(Dataset):
                 self.poses = np.concatenate((self.poses,inp_data),axis=0)
                 self.spins = np.concatenate((self.spins,oup_data),axis=0)
         
-        # self.poses = torch.from_numpy(self.poses).float().to(device)
+        self.poses = torch.from_numpy(self.poses).float().to(device)
         self.spins = torch.from_numpy(self.spins).float().to(device)
         # print_dict(self.dataset_dict)
+        # print(self.spins)
+        # raise
 
     def __len__(self):
         return len(self.spins)
 
     def __getitem__(self, idx):
-        s = int(np.floor(np.random.rand()*5))
+        # s = int(np.floor(np.random.rand()*5))
+        s=0
         rg = list(range(s,self.max_seq_size,self.step))
         return self.poses[idx,rg,:], self.spins[idx,:]
 
@@ -156,20 +160,21 @@ def test_loop(dataloader, model, loss_fn):
 
 def run():
     torch.manual_seed(0)
-    dataset = CustomDataset('dataset',max_seq_size=100,seq_size=20)
+    dataset = CustomDataset('dataset',max_seq_size=100,seq_size=100)
 
     training_data = Subset(dataset, [i for i in range(len(dataset)) if i % 2 == 1] )
     val_dataset = Subset(dataset, [i for i in range(len(dataset)) if i % 2 == 0] )
     # training_data, val_dataset = random_split(dataset,[0.8,0.2])
-    train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
-    test_dataloader = DataLoader(val_dataset, batch_size=64, shuffle=True)
+    train_dataloader = DataLoader(training_data, batch_size=32, shuffle=True)
+    test_dataloader = DataLoader(val_dataset, batch_size=32, shuffle=True)
 
+    train_dataloader = DataLoader(dataset,batch_size=32,shuffle=True) # for effect
 
-    model = TCN().to(device)
+    model = MyTCN(input_size=6, output_size=3, num_channels=[32, 64,128], kernel_size=2, dropout=0.2).to(device)
     loss_fn = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-7,momentum=0.99,weight_decay=5e-5)
 
-    epochs = 500
+    epochs = 2000
     training_loss = []
     testing_loss = []
     min_loss_test = 999999
@@ -186,28 +191,34 @@ def run():
 
     training_rmse = np.sqrt(np.array(training_loss))/(np.pi*2)
     testing_rmse = np.sqrt(np.array(testing_loss))/(np.pi*2)
-    
+    print(f'min training rmse = {training_rmse.min()}')
+    print(f'min testing_rmse rmse = {testing_rmse.min()}')
     fig = plt.figure()
     ax = fig.add_subplot()
     ax.plot(training_rmse,'b',label = 'train')
     ax.plot(testing_rmse,'r',label='test')
+    ax.set_xlabel('epoch')
+    ax.set_ylabel('RMSE (Hz)')
     ax.set_title(min(testing_rmse))
+    ax.grid('on')
+    ax.grid(which='minor', linestyle=':', linewidth='0.5', color='gray')
+    ax.minorticks_on()
     ax.legend()
     plt.show()
 
 def show_prediction():
     torch.manual_seed(0)
-    dataset = CustomDataset('dataset',max_seq_size=100,seq_size=20)
+    dataset = CustomDataset('dataset',max_seq_size=100,seq_size=100)
     val_dataset = Subset(dataset, [i for i in range(len(dataset)) if i % 2 == 0] )
     model = torch.load('trained/tcnn.pth').to(device)
     model.eval()
     with torch.no_grad():
-        for inp,label in val_dataset:
+        for inp,label in dataset:
             pred = model(inp[None,:])
             print('=========================================================')
             print('label \t\t=\t',label/6.28)
             print('prediction \t=\t', pred/6.28)
 
 if __name__ == '__main__':
-    # run()
+    run()
     show_prediction()

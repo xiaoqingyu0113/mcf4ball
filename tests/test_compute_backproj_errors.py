@@ -17,7 +17,7 @@ from gtsam.symbol_shorthand import X,L,V,W
 
 from test_helper import convert2camParam, load_detections, read_yaml, save_list_to_csv,write_rows_to_csv,read_csv
 
-def run_and_save_estimation(folder_name):
+def run_backproj_errors(folder_name):
     '''
     1. compute the 3d estimation of balls using yolo detector
     2. save in d_results.csv
@@ -29,6 +29,7 @@ def run_and_save_estimation(folder_name):
 
     saved_p = [];saved_v = [];saved_w = [];saved_w0 = [];saved_iter = []; saved_gid = [];saved_time = []; saved_detection_id= []
 
+    saved_error_u = []; saved_error_v = []
     graph_minimum_size = 20
     angular_prior = np.zeros(3)
     gtsam_solver = IsamSolver(camera_param_list,
@@ -47,30 +48,24 @@ def run_and_save_estimation(folder_name):
         rst = gtsam_solver.get_result()
         if rst is not None:
             p_rst,v_rst,w_rst = rst
-            saved_p.append(p_rst)
-            saved_w0.append(gtsam_solver.current_estimate.atVector(W(0)))
-            saved_w.append(w_rst)
-            saved_v.append(v_rst)
-            saved_iter.append(iter)
-            saved_gid.append(gtsam_solver.curr_node_idx)
-            saved_time.append(float(d[1]))
-            saved_detection_id.append(detection_ind)
+            uv_backproj = camera_param_list[data[1]].proj2img(p_rst)
+            saved_error_u.append(uv_backproj[0] - d[3])
+            saved_error_v.append(uv_backproj[1] - d[4])
         if detection_ind % 5000 == 4999:
             print(f"{detection_ind}/{detection_length}")
 
-    # save as numpy array
-    save_list_to_csv(folder_name + '/d_results.csv',saved_p,saved_v,saved_w,saved_w0,saved_iter,saved_gid,saved_time,saved_detection_id)
-    print(f"saved to {folder_name} /d_results.csv")
+    mean_u = np.mean(saved_error_u)
+    std_u = np.std(saved_error_u)
+    mean_v = np.mean(saved_error_v)
+    std_v = np.std(saved_error_v)
+
+    print(f"average error for u is {mean_u:.4f} +- {std_u}")
+    print(f"average error for v is {mean_v:.4f} +- {std_v}")
 
 if __name__ == '__main__':
 
-    # run all folder
-    folders = glob.glob('dataset/tennis_*')
-    for folder_name in folders:
-        print('processing ' + folder_name)
-        run_and_save_estimation(folder_name)
 
 
-    # folder_name = 'dataset/tennis_2'
-    # run_and_save_estimation(folder_name) # save the estimation result
+    folder_name = 'dataset/tennis_2'
+    run_backproj_errors(folder_name) # save the estimation result
 

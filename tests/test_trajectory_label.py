@@ -159,12 +159,12 @@ def plot_traj_and_spin(folder_name, traj_ind):
     plt.show()
 if __name__ == '__main__':
     # run all folder
-    # folders = glob.glob('dataset/tennis_*')
-    # for folder_name in folders:
-    #     print('processing ' + folder_name)
-    #     run_label(folder_name)
+    folders = glob.glob('dataset/tennis_*')
+    for folder_name in folders:
+        print('processing ' + folder_name)
+        run_label(folder_name)
     
-    folder_name = 'dataset/tennis_12'
-    run_label(folder_name)
+    # folder_name = 'dataset/tennis_12'
+    # run_label(folder_name)
 
     # plot_traj_and_spin('dataset/tennis_19',0)

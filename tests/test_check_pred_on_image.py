@@ -9,7 +9,7 @@ import yaml
 from mcf4ball.camera import CameraParam
 from mcf4ball.predictor import predict_trajectory
 import mcf4ball.parameters as param
-
+import os
 
 
 def read_yaml(file_path):
@@ -29,7 +29,7 @@ def convert2camParam(params):
         camera_params.append(CameraParam(K,R,t))
     return camera_params
 
-def load_img():
+def load_img(folder_name):
     jpg_files = glob.glob(folder_name+'/*.jpg')
     jpg_files.sort()
     return jpg_files
@@ -70,16 +70,16 @@ def draw_human_keypoints(ax,pose):
         uvs = rst['keypoints']
         for pt in pts:
             x, y = uvs[pt]
-            ax.scatter(x , y, 2, color='r')
+            # ax.scatter(x , y, 2, color='r')
 
         # Link the points
         for s,e in links:
             if (s in r_pts) or (e in r_pts):
-                color= 'green'
+                color= '#FF5733'
             elif (s in l_pts) or (e in l_pts):
-                color = 'orange'
+                color = '#FF5733'
             else:
-                color = 'blue'
+                color = '#FF5733'
             ax.plot([uvs[s][0], uvs[e][0]],[uvs[s][1], uvs[e][1]], color=color, linewidth=2)
         
         # label
@@ -95,7 +95,7 @@ def save_as_image_video(folder_name):
     camera_param = camera_param_list[camera_id]
 
     # load image
-    jpg_files = load_img()
+    jpg_files = load_img(folder_name)
     jpg_iters = [get_iter_from_img(f) for f in jpg_files]
 
     # load result
@@ -111,15 +111,15 @@ def save_as_image_video(folder_name):
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    est_point, = ax.plot([], [], 'b', marker='o', markersize=2,label='est')
+    est_point, = ax.plot([], [], color = 'orange', marker='o', markersize=2,label='est')
     pred_line, = ax.plot([], [], 'orange', lw=2,label='pred')
-    ball_piont, = ax.plot([], [], 'r',marker='o', markersize=5,label='ball')
+    ball_piont, = ax.plot([], [], 'r',marker='.', markersize=10,label='ball')
 
     start_id =  [0]
 
     
     def update(frame):
-        frame = frame *2
+        frame = 8000+frame *2
         print('frame = ', frame)
         ax.clear()
         ax.axis('off')
@@ -136,7 +136,7 @@ def save_as_image_video(folder_name):
             start_id.append(rst_idx)
         start_idx = start_id[-1]
 
-        ax.plot(est_uv[start_idx:rst_idx,0], est_uv[start_idx:rst_idx,1], 'b', marker='.', markersize=1,label='est')
+        ax.plot(est_uv[start_idx:rst_idx,0], est_uv[start_idx:rst_idx,1], 'orange', marker='.', markersize=1,label='est')
 
         
         p0 = saved_p[rst_idx,:];v0 = saved_v[rst_idx,:];w0 = saved_w[rst_idx,:]
@@ -171,26 +171,27 @@ def save_as_image_video(folder_name):
         pred_uv_onimage_nospin = np.array(pred_uv_onimage_nospin)
 
         if len(pred_uv_onimage)>0:
-            ax.plot(pred_uv_onimage[:,0], pred_uv_onimage[:,1], 'orange', lw=1,label='pred with spin')
-            ax.plot(pred_uv_onimage_nospin[:,0], pred_uv_onimage_nospin[:,1], 'red', lw=1,label='pred no spin')
+            ax.plot(pred_uv_onimage[:,0], pred_uv_onimage[:,1], 'green', lw=1,label='spin')
+            ax.plot(pred_uv_onimage_nospin[:,0], pred_uv_onimage_nospin[:,1], 'yellow', lw=1,label='no spin')
         else:
             ax.plot([], [], 'orange', lw=2,label='pred')
         ax.legend()
 
-        # pose:
-        # label_name = jpg_files[frame][:-3] + 'json'
-        # with open(label_name,'r') as file:
-        #     pose = json.load(file)
-        # draw_human_keypoints(ax,pose)
+        # enable pose
+        label_name = jpg_files[frame][:-3] + 'json'
+        if os.path.exists(label_name):
+            with open(label_name,'r') as file:
+                pose = json.load(file)
+            draw_human_keypoints(ax,pose)
 
         return est_point, pred_line,ball_piont,
 
-    ani = animation.FuncAnimation(fig, update, frames=100000, blit=True,interval=2)
+    ani = animation.FuncAnimation(fig, update, frames=4000, blit=True,interval=2)
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
 
     ani.save('results/'+folder_name.split('/')[-1]+'.mp4', writer=writer)
 
 if __name__ == '__main__':
-    folder_name = 'dataset/tennis_1'
+    folder_name = 'dataset/tennis_9'
     save_as_image_video(folder_name)
